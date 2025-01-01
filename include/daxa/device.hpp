@@ -229,8 +229,6 @@ namespace daxa
         WIDE_LINES,
         SAMPLER_ANISOTROPY,
         FRAGMENT_STORES_AND_ATOMICS,
-        SHADER_STORAGE_IMAGE_MULTISAMPLE,
-        SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT,
         SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT,
         SHADER_INT64,
         VARIABLE_POINTERS_STORAGE_BUFFER,
@@ -296,6 +294,9 @@ namespace daxa
         static inline constexpr ImplicitFeatureFlags DYNAMIC_STATE_3 = {0x1 << 10};
         static inline constexpr ImplicitFeatureFlags SHADER_ATOMIC_FLOAT = {0x1 << 11};
         static inline constexpr ImplicitFeatureFlags SWAPCHAIN = {0x1 << 12};
+
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 13};
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 14};
     };
 
     struct DeviceProperties
@@ -317,6 +318,7 @@ namespace daxa
         ImplicitFeatureFlags implicit_features;
         ExplicitFeatureFlags explicit_features;
         MissingRequiredVkFeature missing_required_feature;
+        //MissingOptionalVkFeature missing_optional_feature;
     };
 
     [[deprecated("Use create_device_2 and Instance::choose_device instead")]] DAXA_EXPORT_CXX auto default_device_score(DeviceProperties const & device_props) -> i32;

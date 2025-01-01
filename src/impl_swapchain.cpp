@@ -274,13 +274,6 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
     surface_extent.width = surface_capabilities.currentExtent.width;
     surface_extent.height = surface_capabilities.currentExtent.height;
 
-#if __linux__
-    // TODO(grundlett): I (grundlett) am too lazy to find out why the other present modes
-    // fail on Linux. This can be inspected by Linux people and they can
-    // submit a PR if they find a fix.
-    info.present_mode = PresentMode::IMMEDIATE;
-#endif
-
     auto * old_swapchain = this->vk_swapchain;
 
     // NOTE: this is a hack that allows us to ignore issues caused
