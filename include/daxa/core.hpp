@@ -63,7 +63,23 @@ namespace daxa
     ///         On Windows, this is an `HWND`
     ///         On Linux X11, this is a `Window`
     ///         On Linux Wayland, this is a `wl_surface *`
-    using NativeWindowHandle = void *;
+    //using NativeWindowHandle = void *;
+    union NativeWindowHandle
+    {
+        struct {
+            void* hwnd;
+        } windows;
+
+        struct {
+            void* display;
+            unsigned long window;
+        } x11;
+
+        struct {
+            void* display;
+            void* surface;
+        } wayland;
+    };
 
     enum struct NativeWindowPlatform
     {

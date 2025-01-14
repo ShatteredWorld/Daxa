@@ -11,7 +11,23 @@ daxa_default_format_selector(VkFormat format);
 ///         On Windows, this is an `HWND`
 ///         On Linux X11, this is a `Window`
 ///         On Linux Wayland, this is a `wl_surface *`
-typedef void * daxa_NativeWindowHandle;
+//typedef void * daxa_NativeWindowHandle;
+typedef union
+{
+    struct {
+        void* hwnd;
+    } windows;
+
+    struct {
+        void* display;
+        void* window;
+    } x11;
+
+    struct {
+        void* display;
+        void* surface;
+    } wayland;
+} daxa_NativeWindowHandle;
 
 typedef enum
 {
@@ -26,6 +42,7 @@ typedef struct
 {
     daxa_NativeWindowHandle native_window;
     daxa_NativeWindowPlatform native_window_platform;
+    VkExtent2D window_size;
     int32_t (*surface_format_selector)(VkFormat);
     VkPresentModeKHR present_mode;
     VkSurfaceTransformFlagBitsKHR present_operation;
@@ -40,7 +57,7 @@ daxa_swp_get_surface_extent(daxa_Swapchain swapchain);
 DAXA_EXPORT VkFormat
 daxa_swp_get_format(daxa_Swapchain swapchain);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
-daxa_swp_resize(daxa_Swapchain swapchain);
+daxa_swp_resize(daxa_Swapchain swapchain, VkExtent2D window_size);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_swp_set_present_mode(daxa_Swapchain swapchain, VkPresentModeKHR present_mode);
 

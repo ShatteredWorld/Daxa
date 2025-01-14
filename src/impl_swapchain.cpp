@@ -157,8 +157,9 @@ auto daxa_swp_get_format(daxa_Swapchain self) -> VkFormat
     return self->vk_surface_format.format;
 }
 
-auto daxa_swp_resize(daxa_Swapchain self) -> daxa_Result
+auto daxa_swp_resize(daxa_Swapchain self, VkExtent2D window_size) -> daxa_Result
 {
+    self->info.window_size = std::bit_cast<Extent2D>(window_size);
     auto result = self->recreate();
     if (result != DAXA_RESULT_SUCCESS)
     {
@@ -273,6 +274,12 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
 
     surface_extent.width = surface_capabilities.currentExtent.width;
     surface_extent.height = surface_capabilities.currentExtent.height;
+
+    if(surface_extent.width == UINT32_MAX || surface_extent.height == UINT32_MAX)
+    {
+        surface_extent.width = std::clamp(info.window_size.x,surface_capabilities.minImageExtent.width,surface_capabilities.maxImageExtent.width);
+        surface_extent.height = std::clamp(info.window_size.y,surface_capabilities.minImageExtent.height,surface_capabilities.maxImageExtent.height);
+    }
 
     auto * old_swapchain = this->vk_swapchain;
 

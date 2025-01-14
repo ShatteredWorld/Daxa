@@ -680,7 +680,7 @@ namespace daxa
     {
         constexpr StringLiteral(char const (&str)[N])
         {
-            std::copy_n(str, N - 1, value);
+            std::ranges::copy_n(str, N - 1, value);
         }
         char value[N - 1];
         usize SIZE = N - 1;

@@ -23,6 +23,7 @@ namespace daxa
     {
         NativeWindowHandle native_window;
         NativeWindowPlatform native_window_platform;
+        Extent2D window_size;
         i32 (*surface_format_selector)(Format) = default_format_score;
         PresentMode present_mode = PresentMode::FIFO;
         PresentOp present_operation = PresentOp::IDENTITY;
@@ -83,7 +84,7 @@ namespace daxa
         /// WARNING:
         /// * Due to wsi limitations this function will WAIT IDLE THE DEVICE.
         /// * If the function throws an error, The swapchain will be invalidated and unusable!
-        void resize();
+        void resize(Extent2D window_size = {});
         /// @brief Recreates swapchain with new present mode.
         /// WARNING:
         /// * Due to wsi limitations this function will WAIT IDLE THE DEVICE.
