@@ -26,7 +26,7 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
 #if defined(WIN32)
     required_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__linux__)
-    required_extensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+    required_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 #if DAXA_BUILT_WITH_WAYLAND
     required_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 #endif

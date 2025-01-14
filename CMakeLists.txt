@@ -220,6 +220,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(daxa
             PRIVATE
             ${X11_LIBRARIES}
+            ${X11_X11_xcb_LIB}
         )
     endif()
 

@@ -20,7 +20,7 @@ typedef union
 
     struct {
         void* display;
-        void* window;
+	    unsigned long window;
     } x11;
 
     struct {
