@@ -776,6 +776,16 @@ namespace daxa
             "failed to set swapchain present mode");
     }
 
+	auto Swapchain::acquire_next_image(ImageId& id) -> DaxaResult
+	{
+		auto result = daxa_swp_acquire_next_image(r_cast<daxa_Swapchain>(this->object), r_cast<daxa_ImageId *>(&id));
+		if(result != DAXA_RESULT_SUCCESS)
+		{
+			id = {};
+		}
+		return static_cast<DaxaResult>(result);
+	}
+
     auto Swapchain::acquire_next_image() -> ImageId
     {
         ImageId ret = {};

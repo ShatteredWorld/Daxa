@@ -49,6 +49,7 @@ namespace daxa
     {
         Swapchain() = default;
 
+		[[nodiscard]] auto acquire_next_image(ImageId& id) -> DaxaResult;
         /// @brief The ImageId may change between calls. This must be called to obtain a new swapchain image to be used for rendering.
         /// WARNING:
         /// * ImageIds returned from the swapchain are INVALID after the swapchain is destroyed.
