@@ -783,6 +783,9 @@ namespace daxa
 		{
 			id = {};
 		}
+		check_result(result, "failed to acquire next swapchain image",std::array{
+				DAXA_RESULT_SUCCESS, DAXA_RESULT_ERROR_OUT_OF_DATE_KHR, DAXA_RESULT_SUBOPTIMAL_KHR,
+				DAXA_RESULT_ERROR_SURFACE_LOST_KHR, DAXA_RESULT_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT});
 		return static_cast<DaxaResult>(result);
 	}
 
