@@ -195,6 +195,7 @@ namespace daxa
         u32 invocation_reorder_mode = {};
     };
 
+#if !DAXA_REMOVE_DEPRECATED
     struct DeviceFlagsProperties
     {
         using Data = u32;
@@ -216,6 +217,7 @@ namespace daxa
         [[deprecated("Use ExplicitFeatureFlags or ImplicitFeatureFlags instead")]] static inline constexpr DeviceFlags DYNAMIC_STATE_3 = {0x1 << 11};
         [[deprecated("Use ExplicitFeatureFlags or ImplicitFeatureFlags instead")]] static inline constexpr DeviceFlags SHADER_ATOMIC_FLOAT = {0x1 << 12};
     };
+#endif
 
     enum struct MissingRequiredVkFeature
     {
@@ -322,6 +324,7 @@ namespace daxa
         //MissingOptionalVkFeature missing_optional_feature;
     };
 
+#if !DAXA_REMOVE_DEPRECATED
     [[deprecated("Use create_device_2 and Instance::choose_device instead")]] DAXA_EXPORT_CXX auto default_device_score(DeviceProperties const & device_props) -> i32;
 
     struct [[deprecated("Use DeviceInfo2 instead")]] DeviceInfo
@@ -339,6 +342,7 @@ namespace daxa
         u32 max_allowed_acceleration_structures = 10'000;
         SmallString name = {};
     };
+#endif
 
     struct DeviceInfo2
     {
@@ -580,6 +584,7 @@ namespace daxa
         [[nodiscard]] auto properties() const -> DeviceProperties const &;
         [[nodiscard]] auto get_supported_present_modes(NativeWindowHandle native_handle, NativeWindowPlatform native_platform) const -> std::vector<PresentMode>;
 
+#if !DAXA_REMOVE_DEPRECATED
         /// DEPRECATED:
 
         [[deprecated("Use tlas_build_sizes or as_build_sizes Instead")]] [[nodiscard]] auto get_tlas_build_sizes(TlasBuildInfo const & info) { return tlas_build_sizes(info); }
@@ -603,6 +608,7 @@ namespace daxa
         [[deprecated("Use buffer_device_address or device_address instead")]] [[nodiscard]] auto get_device_address(BufferId id) const { return buffer_device_address(id); }
         [[deprecated("Use blas_device_address or device_address instead")]] [[nodiscard]] auto get_device_address(BlasId id) const { return blas_device_address(id); }
         [[deprecated("Use tlas_device_address or device_address instead")]] [[nodiscard]] auto get_device_address(TlasId id) const { return tlas_device_address(id); }
+#endif
 
       protected:
         template <typename T, typename H_T>
