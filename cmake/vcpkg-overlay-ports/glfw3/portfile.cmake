@@ -1,7 +1,7 @@
 vcpkg_from_git(
     OUT_SOURCE_PATH SOURCE_PATH
     URL https://github.com/glfw/glfw
-    REF 8f470597d625ae28758c16b4293dd42d63e8a83a
+    REF 7b6aead9fb88b3623e3b3725ebb42670cbe4c579
 )
 
 if(VCPKG_TARGET_IS_LINUX)
