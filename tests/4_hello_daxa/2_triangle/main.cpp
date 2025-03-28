@@ -16,25 +16,38 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #elif defined(__linux__)
 #define GLFW_EXPOSE_NATIVE_X11
+#define GLFW_EXPOSE_NATIVE_WAYLAND
 #endif
 #include <GLFW/glfw3native.h>
 
-auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
-{
-#if defined(_WIN32)
-    return glfwGetWin32Window(glfw_window_ptr);
-#elif defined(__linux__)
-    return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(glfw_window_ptr));
-#endif
-}
-
 auto get_native_platform(GLFWwindow * /*unused*/) -> daxa::NativeWindowPlatform
 {
+    switch(glfwGetPlatform())
+    {
+        case GLFW_PLATFORM_WIN32: return daxa::NativeWindowPlatform::WIN32_API;
+        case GLFW_PLATFORM_X11: return daxa::NativeWindowPlatform::XLIB_API;
+        case GLFW_PLATFORM_WAYLAND: return daxa::NativeWindowPlatform::WAYLAND_API;
+        default: return daxa::NativeWindowPlatform::UNKNOWN;
+    }
+}
+
+auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
+{
+	daxa::NativeWindowHandle handle;
 #if defined(_WIN32)
-    return daxa::NativeWindowPlatform::WIN32_API;
+        handle.windows = {glfwGetWin32Window(glfw_window_ptr)};
 #elif defined(__linux__)
-    return daxa::NativeWindowPlatform::XLIB_API;
+        switch (get_native_platform(glfw_window_ptr))
+        {
+        case daxa::NativeWindowPlatform::WAYLAND_API:
+	        handle.wayland = {glfwGetWaylandDisplay(), glfwGetWaylandWindow(glfw_window_ptr)};
+		        break;
+        case daxa::NativeWindowPlatform::XLIB_API:
+        default:
+	        handle.x11 = {.display=glfwGetX11Display(), .window=glfwGetX11Window(glfw_window_ptr)};
+        }
 #endif
+	return handle;
 }
 
 struct WindowInfo
@@ -213,7 +226,7 @@ auto main() -> int
             window_info_ref.width = static_cast<daxa::u32>(width);
             window_info_ref.height = static_cast<daxa::u32>(height);
         });
-    auto * native_window_handle = get_native_handle(glfw_window_ptr);
+    auto native_window_handle = get_native_handle(glfw_window_ptr);
     auto native_window_platform = get_native_platform(glfw_window_ptr);
 
     daxa::Instance instance = daxa::create_instance({});
@@ -224,6 +237,7 @@ auto main() -> int
     daxa::Swapchain swapchain = device.create_swapchain({
         .native_window = native_window_handle,
         .native_window_platform = native_window_platform,
+	    .window_size = daxa::Extent2D{window_info.width, window_info.height},
         .surface_format_selector = [](daxa::Format format)
         {
             switch (format)
@@ -382,7 +396,7 @@ auto main() -> int
 
         if (window_info.swapchain_out_of_date)
         {
-            swapchain.resize();
+            swapchain.resize(daxa::Extent2D{window_info.width, window_info.height});
             window_info.swapchain_out_of_date = false;
         }
 
