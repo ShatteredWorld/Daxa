@@ -16,23 +16,18 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
     ret.info.engine_name = ret.engine_name;
     ret.app_name = {ret.info.app_name.data(), ret.info.app_name.size()};
     ret.info.app_name = ret.app_name;
-    std::vector<char const *> required_extensions{};
-    required_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    std::vector<char const *> explicit_extensions{};
     if ((ret.info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE)
     {
-        required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        explicit_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
-#if defined(WIN32)
-    required_extensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
-#elif defined(__linux__)
-    required_extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#if DAXA_BUILT_WITH_WAYLAND
-    required_extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
-#endif
-#else
-// no surface extension
-#endif
+    std::vector<char const *> implicit_extensions{};
+    implicit_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+    implicit_extensions.push_back("VK_KHR_win32_surface");
+    implicit_extensions.push_back("VK_KHR_xlib_surface");
+    implicit_extensions.push_back("VK_KHR_wayland_surface");
+    
     // Check existence of extensions:
     std::vector<VkExtensionProperties> instance_extensions = {};
     uint32_t instance_extension_count = {};
@@ -43,7 +38,10 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
     result = static_cast<daxa_Result>(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, instance_extensions.data()));
     _DAXA_RETURN_IF_ERROR(result, result);
 
-    for (auto const * req_ext : required_extensions)
+    std::vector<char const *> enabled_extensions{};
+    enabled_extensions.reserve(implicit_extensions.size() + explicit_extensions.size());
+
+    for (auto const * req_ext : explicit_extensions)
     {
         bool found = false;
         for (auto & instance_extension : instance_extensions)
@@ -57,6 +55,24 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
         if (!found)
         {
             return DAXA_RESULT_ERROR_EXTENSION_NOT_PRESENT;
+        }
+        enabled_extensions.push_back(req_ext);
+    }
+
+    for (auto const * ext : implicit_extensions)
+    {
+        bool found = false;
+        for (auto & instance_extension : instance_extensions)
+        {
+            if (std::strcmp(ext, instance_extension.extensionName) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (found)
+        {
+            enabled_extensions.push_back(ext);
         }
     }
     VkApplicationInfo const app_info = {
@@ -75,8 +91,8 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
         .pApplicationInfo = &app_info,
         .enabledLayerCount = 0u,
         .ppEnabledLayerNames = nullptr,
-        .enabledExtensionCount = static_cast<uint32_t>(required_extensions.size()),
-        .ppEnabledExtensionNames = required_extensions.data(),
+        .enabledExtensionCount = static_cast<uint32_t>(enabled_extensions.size()),
+        .ppEnabledExtensionNames = enabled_extensions.data(),
     };
     result = static_cast<daxa_Result>(vkCreateInstance(&instance_ci, nullptr, &ret.vk_instance));
     _DAXA_RETURN_IF_ERROR(result, result);
@@ -129,7 +145,7 @@ auto daxa_instance_create_device(daxa_Instance self, daxa_DeviceInfo const * leg
     daxa_DeviceInfo2 info = {};
     if (legacy_info->flags & DAXA_DEVICE_FLAG_BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT)
     {
-        info.explicit_features = DAXA_EXPLICIT_FEATURE_FLAG_ACCELERATION_STRUCTURE_CAPTURE_REPLAY;
+        info.explicit_features = DAXA_EXPLICIT_FEATURE_FLAG_BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY;
     }
     if (legacy_info->flags & DAXA_DEVICE_FLAG_VK_MEMORY_MODEL)
     {
