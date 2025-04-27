@@ -297,9 +297,10 @@ namespace daxa
         static inline constexpr ImplicitFeatureFlags SHADER_ATOMIC_FLOAT = {0x1 << 11};
         static inline constexpr ImplicitFeatureFlags SWAPCHAIN = {0x1 << 12};
         static inline constexpr ImplicitFeatureFlags SHADER_INT16 = {0x1 << 13};
+        static inline constexpr ImplicitFeatureFlags SHADER_CLOCK = {0x1 << 14};
 
-        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 14};
-        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 15};
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 30};
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 31};
     };
 
     struct DeviceProperties
@@ -548,8 +549,6 @@ namespace daxa
 
         [[nodiscard]] auto create_swapchain(SwapchainInfo const & info) -> Swapchain;
         [[nodiscard]] auto create_command_recorder(CommandRecorderInfo const & info) -> CommandRecorder;
-        [[nodiscard]] auto create_compute_command_recorder(CommandRecorderInfo const & info) -> ComputeCommandRecorder;
-        [[nodiscard]] auto create_transfer_command_recorder(CommandRecorderInfo const & info) -> TransferCommandRecorder;
         [[nodiscard]] auto create_binary_semaphore(BinarySemaphoreInfo const & info) -> BinarySemaphore;
         [[nodiscard]] auto create_timeline_semaphore(TimelineSemaphoreInfo const & info) -> TimelineSemaphore;
         [[nodiscard]] auto create_event(EventInfo const & info) -> Event;
