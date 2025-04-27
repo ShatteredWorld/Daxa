@@ -162,8 +162,9 @@ auto daxa_swp_get_color_space(daxa_Swapchain self) -> VkColorSpaceKHR
     return self->vk_surface_format.colorSpace;
 }
 
-auto daxa_swp_resize(daxa_Swapchain self) -> daxa_Result
+auto daxa_swp_resize(daxa_Swapchain self, VkExtent2D window_size) -> daxa_Result
 {
+    self->info.window_size = std::bit_cast<Extent2D>(window_size);
     auto result = self->recreate();
     if (result != DAXA_RESULT_SUCCESS)
     {
@@ -279,12 +280,11 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
     surface_extent.width = surface_capabilities.currentExtent.width;
     surface_extent.height = surface_capabilities.currentExtent.height;
 
-#if __linux__
-    // TODO(grundlett): I (grundlett) am too lazy to find out why the other present modes
-    // fail on Linux. This can be inspected by Linux people and they can
-    // submit a PR if they find a fix.
-    info.present_mode = PresentMode::IMMEDIATE;
-#endif
+    if(surface_extent.width == UINT32_MAX || surface_extent.height == UINT32_MAX)
+    {
+        surface_extent.width = std::clamp(info.window_size.x,surface_capabilities.minImageExtent.width,surface_capabilities.maxImageExtent.width);
+        surface_extent.height = std::clamp(info.window_size.y,surface_capabilities.minImageExtent.height,surface_capabilities.maxImageExtent.height);
+    }
 
     auto * old_swapchain = this->vk_swapchain;
 

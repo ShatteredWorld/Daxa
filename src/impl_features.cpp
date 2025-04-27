@@ -181,7 +181,6 @@ namespace daxa
     };
 
     constexpr static std::array REQUIRED_FEATURES = std::array{
-        RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageMultisample), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.imageCubeArray), DAXA_MISSING_REQUIRED_VK_FEATURE_IMAGE_CUBE_ARRAY},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.independentBlend), DAXA_MISSING_REQUIRED_VK_FEATURE_INDEPENDENT_BLEND},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.tessellationShader), DAXA_MISSING_REQUIRED_VK_FEATURE_TESSELLATION_SHADER},
@@ -191,7 +190,6 @@ namespace daxa
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.wideLines), DAXA_MISSING_REQUIRED_VK_FEATURE_WIDE_LINES},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.samplerAnisotropy), DAXA_MISSING_REQUIRED_VK_FEATURE_SAMPLER_ANISOTROPY},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.fragmentStoresAndAtomics), DAXA_MISSING_REQUIRED_VK_FEATURE_FRAGMENT_STORES_AND_ATOMICS},
-        RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageReadWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageWriteWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderInt64), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_INT64},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_variable_pointer_features.variablePointersStorageBuffer), DAXA_MISSING_REQUIRED_VK_FEATURE_VARIABLE_POINTERS_STORAGE_BUFFER},
@@ -314,6 +312,14 @@ namespace daxa
         offsetof(PhysicalDeviceFeaturesStruct, physical_device_shader_clock_features_khr.shaderSubgroupClock),
         offsetof(PhysicalDeviceFeaturesStruct, physical_device_shader_clock_features_khr.shaderDeviceClock),
     };
+  
+    constexpr static std::array DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_MULTISAMPLE_FEATURES = std::array{
+        offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageMultisample),
+    };
+
+    constexpr static std::array DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT_FEATURES = std::array{
+        offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageReadWithoutFormat),
+    };
 
     constexpr static std::array IMPLICIT_FEATURES = std::array{
         ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_MESH_SHADER_VK_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_MESH_SHADER},
@@ -331,6 +337,9 @@ namespace daxa
         ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_SWAPCHAIN_VK_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_SWAPCHAIN},
         ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_SHADER_INT16_VK_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_SHADER_INT16},
         ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_SHADER_CLOCK_VK_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_SHADER_CLOCK},
+
+        ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_MULTISAMPLE_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_MULTISAMPLE},
+        ImplicitFeature{DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT_FEATURES, DAXA_IMPLICIT_FEATURE_FLAG_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT},
     };
 
     // === Explicit Features ===

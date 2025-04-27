@@ -32,6 +32,7 @@ if(DAXA_ENABLE_TESTS)
 endif()
 
 project(daxa VERSION 3.0.2)
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
 
 if(DAXA_ENABLE_STATIC_ANALYSIS)
     set(CPPCHECK_TEMPLATE "gcc")
@@ -221,6 +222,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_libraries(daxa
             PRIVATE
             ${X11_LIBRARIES}
+            ${X11_X11_xcb_LIB}
         )
     endif()
 

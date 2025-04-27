@@ -731,10 +731,10 @@ namespace daxa
 
     /// --- Begin Swapchain ---
 
-    void Swapchain::resize()
+    void Swapchain::resize(Extent2D window_size)
     {
         check_result(
-            daxa_swp_resize(r_cast<daxa_Swapchain>(this->object)),
+            daxa_swp_resize(r_cast<daxa_Swapchain>(this->object), std::bit_cast<VkExtent2D>(window_size)),
             "failed to resize swapchain", std::array{DAXA_RESULT_SUCCESS, DAXA_RESULT_ERROR_OUT_OF_DATE_KHR});
     }
 
@@ -744,6 +744,19 @@ namespace daxa
             daxa_swp_set_present_mode(r_cast<daxa_Swapchain>(this->object), std::bit_cast<VkPresentModeKHR>(present_mode)),
             "failed to set swapchain present mode");
     }
+
+	auto Swapchain::acquire_next_image(ImageId& id) -> DaxaResult
+	{
+		auto result = daxa_swp_acquire_next_image(r_cast<daxa_Swapchain>(this->object), r_cast<daxa_ImageId *>(&id));
+		if(result != DAXA_RESULT_SUCCESS)
+		{
+			id = {};
+		}
+		check_result(result, "failed to acquire next swapchain image",std::array{
+				DAXA_RESULT_SUCCESS, DAXA_RESULT_ERROR_OUT_OF_DATE_KHR, DAXA_RESULT_SUBOPTIMAL_KHR,
+				DAXA_RESULT_ERROR_SURFACE_LOST_KHR, DAXA_RESULT_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT});
+		return static_cast<DaxaResult>(result);
+	}
 
     auto Swapchain::acquire_next_image() -> ImageId
     {

@@ -69,7 +69,7 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
         .pNext = nullptr,
         .flags = 0,
         .hinstance = GetModuleHandleA(nullptr),
-        .hwnd = static_cast<HWND>(handle),
+        .hwnd = static_cast<HWND>(handle.windows.hwnd),
     };
     {
         auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
@@ -87,8 +87,8 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
             .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
-            .display = wl_display_connect(nullptr),
-            .surface = static_cast<wl_surface *>(handle),
+            .display = static_cast<wl_display*>(handle.wayland.display),
+            .surface = static_cast<wl_surface *>(handle.wayland.surface),
         };
         {
             auto func = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
@@ -102,18 +102,32 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
     case NativeWindowPlatform::XLIB_API:
     default:
     {
+		/*
         VkXlibSurfaceCreateInfoKHR surface_ci{
             .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
-            .dpy = XOpenDisplay(nullptr),
-            .window = reinterpret_cast<Window>(handle),
+            .dpy = static_cast<Display*>(handle.x11.display),
+            .window = reinterpret_cast<Window>(handle.x11.window),
         };
         {
             auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
             VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
             return std::bit_cast<daxa_Result>(vk_result);
         }
+		*/
+	    VkXcbSurfaceCreateInfoKHR surface_ci{
+			    .sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+			    .pNext = nullptr,
+			    .flags = 0,
+			    .connection = XGetXCBConnection(static_cast<Display*>(handle.x11.display)),
+			    .window = static_cast<xcb_window_t>(handle.x11.window),
+	    };
+	    {
+		    auto func = reinterpret_cast<PFN_vkCreateXcbSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXcbSurfaceKHR"));
+		    VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
+		    return std::bit_cast<daxa_Result>(vk_result);
+	    }
     }
     break;
     }
