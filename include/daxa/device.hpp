@@ -299,8 +299,8 @@ namespace daxa
         static inline constexpr ImplicitFeatureFlags SHADER_INT16 = {0x1 << 13};
         static inline constexpr ImplicitFeatureFlags SHADER_CLOCK = {0x1 << 14};
 
-        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 30};
-        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 31};
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 29};
+        static inline constexpr ImplicitFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 30};
     };
 
     struct DeviceProperties
