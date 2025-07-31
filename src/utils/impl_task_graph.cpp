@@ -13,6 +13,26 @@
 
 namespace daxa
 {
+    auto error_message_unassigned_buffer_view(std::string_view task_name, std::string_view attachment_name) -> std::string
+    {
+        return std::format("Detected empty TaskBufferView in attachment \"{}\" view assignment in task \"{}\"!", attachment_name, task_name);
+    }
+
+    auto error_message_unassigned_image_view(std::string_view task_name, std::string_view attachment_name) -> std::string
+    {
+        return std::format("Detected empty TaskImageView in attachment \"{}\" view assignment in task \"{}\"!", attachment_name, task_name);
+    }
+
+    auto error_message_unassigned_tlas_view(std::string_view task_name, std::string_view attachment_name) -> std::string
+    {
+        return std::format("Detected empty TaskTlasView in attachment \"{}\" view assignment in task \"{}\"!", attachment_name, task_name);
+    }
+
+    auto error_message_unassigned_blas_view(std::string_view task_name, std::string_view attachment_name) -> std::string
+    {
+        return std::format("Detected empty TaskBlasView in attachment \"{}\" view assignment in task \"{}\"!", attachment_name, task_name);
+    }
+
     auto flat_queue_index(daxa::Queue queue) -> u32
     {
         u32 offsets[3] = {
@@ -799,7 +819,7 @@ namespace daxa
     auto TaskImage::view() const -> TaskImageView
     {
         auto & impl = *r_cast<ImplPersistentTaskImage *>(this->object);
-        return TaskImageView{{.task_graph_index = std::numeric_limits<u32>::max(), .index = impl.unique_index}};
+        return TaskImageView{.task_graph_index = std::numeric_limits<u32>::max(), .index = impl.unique_index};
     }
 
     auto TaskImage::info() const -> TaskImageInfo const &
@@ -900,13 +920,13 @@ namespace daxa
             permutation.image_infos = {&impl.mk2.task_memory};
             permutation.initial_barriers = {&impl.mk2.task_memory};
             auto queue_submit_scopes = std::array{
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory} },
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
+                QueueSubmitScope{.last_minute_barrier_indices = {&impl.mk2.task_memory}, .task_batches = {&impl.mk2.task_memory}, .used_swapchain_task_images = {&impl.mk2.task_memory}},
             };
             permutation.batch_submit_scopes.push_back(TaskBatchSubmitScope{
                 .queue_submit_scopes = queue_submit_scopes,
@@ -993,7 +1013,7 @@ namespace daxa
         auto & impl = *reinterpret_cast<ImplTaskGraph *>(this->object);
         DAXA_DBG_ASSERT_TRUE_M(!impl.compiled, "completed task graphs can not record new tasks");
         DAXA_DBG_ASSERT_TRUE_M(!impl.image_name_to_id.contains(image.info().name), "task image names must be unique");
-        TaskImageView const task_image_id{{.task_graph_index = impl.unique_index, .index = static_cast<u32>(impl.global_image_infos.size())}};
+        TaskImageView const task_image_id{.task_graph_index = impl.unique_index, .index = static_cast<u32>(impl.global_image_infos.size())};
 
         for (auto & permutation : impl.permutations)
         {
@@ -1076,10 +1096,10 @@ namespace daxa
 
         info.name = impl.mk2.task_memory.allocate_copy_string(info.name);
 
-        TaskImageView task_image_view = {{
+        TaskImageView task_image_view = {
             .task_graph_index = impl.unique_index,
             .index = static_cast<u32>(impl.global_image_infos.size()),
-        }};
+        };
         task_image_view.slice = {
             .level_count = info.mip_level_count,
             .layer_count = info.array_layer_count,
@@ -1140,27 +1160,23 @@ namespace daxa
 
         auto const view = impl.buffer_blas_tlas_id_to_local_id(info.buffer);
 
+        auto name = info.name.size() > 0 ? std::string(info.name) : std::string("clear buffer: ") + std::string(impl.global_buffer_infos.at(view.index).get_name());
+
         TaskBufferClearInfo cinfo = info;
-        add_task(InlineTaskInfo{
-                     .attachments = {inl_attachment(TaskBufferAccess::TRANSFER_WRITE, view)},
-                     .task = [=](TaskInterface ti)
-                     {
-                         for (u32 runtime_buf = 0; runtime_buf < ti.get(TaskBufferAttachmentIndex{0}).ids.size(); ++runtime_buf)
-                         {
-                             auto actual_size = ti.info(TaskBufferAttachmentIndex{0}, runtime_buf).value().size;
-                             DAXA_DBG_ASSERT_TRUE_M(cinfo.offset < actual_size, "clear buffer offset must be smaller then actual buffer size");
-                             auto size = std::min(actual_size, cinfo.size) - cinfo.offset;
-                             ti.recorder.clear_buffer(BufferClearInfo{
-                                 .buffer = ti.get(TaskBufferAttachmentIndex{0}).ids[runtime_buf],
-                                 .offset = cinfo.offset,
-                                 .size = size,
-                                 .clear_value = cinfo.clear_value,
-                             });
-                         }
-                     },
-                     .name = info.name.size() > 0 ? std::string(info.name) : std::string("clear buffer: ") + std::string(impl.global_buffer_infos.at(view.index).get_name()),
-                 },
-                 {info.queue});
+        add_task(InlineTask::Transfer(name).writes(view).uses_queue(info.queue).executes([=](TaskInterface ti)
+                                                                                         {
+            for (u32 runtime_buf = 0; runtime_buf < ti.get(TaskBufferAttachmentIndex{0}).ids.size(); ++runtime_buf)
+            {
+                auto actual_size = ti.info(TaskBufferAttachmentIndex{0}, runtime_buf).value().size;
+                DAXA_DBG_ASSERT_TRUE_M(cinfo.offset < actual_size, "clear buffer offset must be smaller then actual buffer size");
+                auto size = std::min(actual_size, cinfo.size) - cinfo.offset;
+                ti.recorder.clear_buffer(BufferClearInfo{
+                    .buffer = ti.get(TaskBufferAttachmentIndex{0}).ids[runtime_buf],
+                    .offset = cinfo.offset,
+                    .size = size,
+                    .clear_value = cinfo.clear_value,
+                });
+            } }));
     }
 
     DAXA_EXPORT_CXX void TaskGraph::clear_image(TaskImageClearInfo const & info)
@@ -1169,23 +1185,25 @@ namespace daxa
 
         auto const view = impl.id_to_local_id(info.view);
 
+        auto name = info.name.size() > 0 ? std::string(info.name) : std::string("clear image: ") + std::string(impl.global_image_infos.at(view.index).get_name());
+
         TaskImageClearInfo cinfo = info;
-        add_task(InlineTaskInfo{
-                     .attachments = {inl_attachment(TaskImageAccess::TRANSFER_WRITE, info.view)},
-                     .task = [=](TaskInterface ti)
-                     {
-                         for (u32 runtime_img = 0; runtime_img < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_img)
-                         {
-                             ti.recorder.clear_image(ImageClearInfo{
-                                 .clear_value = cinfo.clear_value,
-                                 .dst_image = ti.get(TaskImageAttachmentIndex{0}).ids[runtime_img],
-                                 .dst_slice = cinfo.view.slice,
-                             });
-                         }
-                     },
-                     .name = info.name.size() > 0 ? std::string(info.name) : std::string("clear image: ") + std::string(impl.global_image_infos.at(view.index).get_name()),
-                 },
-                 {info.queue});
+        add_task(
+            InlineTask::Transfer(name)
+                .writes(view)
+                .uses_queue(info.queue)
+                .executes(
+                    [=](TaskInterface ti)
+                    {
+                        for (u32 runtime_img = 0; runtime_img < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_img)
+                        {
+                            ti.recorder.clear_image(ImageClearInfo{
+                                .clear_value = cinfo.clear_value,
+                                .dst_image = ti.get(TaskImageAttachmentIndex{0}).ids[runtime_img],
+                                .dst_slice = cinfo.view.slice,
+                            });
+                        }
+                    }));
     }
 
     DAXA_EXPORT_CXX void TaskGraph::copy_buffer_to_buffer(TaskBufferCopyInfo const & info)
@@ -1197,27 +1215,27 @@ namespace daxa
         auto src_i = TaskBufferAttachmentIndex{0};
         auto dst_i = TaskBufferAttachmentIndex{1};
 
-        add_task(InlineTaskInfo{
-                     .attachments = {
-                         inl_attachment(TaskBufferAccess::TRANSFER_READ, src),
-                         inl_attachment(TaskBufferAccess::TRANSFER_WRITE, dst),
-                     },
-                     .task = [=](TaskInterface ti)
-                     {
-                         DAXA_DBG_ASSERT_TRUE_M(ti.get(src_i).ids.size() == ti.get(dst_i).ids.size(), "given src and dst must have the same number of runtime resources");
-                         for (u32 runtime_buf = 0; runtime_buf < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_buf)
-                         {
-                             DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_buf).value().size == ti.info(dst_i, runtime_buf).value().size, "given src and dst must have the same size");
-                             ti.recorder.copy_buffer_to_buffer(BufferCopyInfo{
-                                 .src_buffer = ti.get(src_i).ids[runtime_buf],
-                                 .dst_buffer = ti.get(src_i).ids[runtime_buf],
-                                 .size = ti.info(src_i, runtime_buf).value().size,
-                             });
-                         }
-                     },
-                     .name = info.name.size() > 0 ? std::string(info.name) : std::string("copy ") + std::string(impl.global_buffer_infos.at(src.index).get_name()) + " to " + std::string(impl.global_buffer_infos.at(dst.index).get_name()),
-                 },
-                 {info.queue});
+        auto name = info.name.size() > 0 ? std::string(info.name) : std::string("copy ") + std::string(impl.global_buffer_infos.at(src.index).get_name()) + " to " + std::string(impl.global_buffer_infos.at(dst.index).get_name());
+
+        add_task(
+            InlineTask::Transfer(name)
+                .reads(src)
+                .writes(dst)
+                .uses_queue(info.queue)
+                .executes(
+                    [=](TaskInterface ti)
+                    {
+                        DAXA_DBG_ASSERT_TRUE_M(ti.get(src_i).ids.size() == ti.get(dst_i).ids.size(), "given src and dst must have the same number of runtime resources");
+                        for (u32 runtime_buf = 0; runtime_buf < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_buf)
+                        {
+                            DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_buf).value().size == ti.info(dst_i, runtime_buf).value().size, "given src and dst must have the same size");
+                            ti.recorder.copy_buffer_to_buffer(BufferCopyInfo{
+                                .src_buffer = ti.get(src_i).ids[runtime_buf],
+                                .dst_buffer = ti.get(src_i).ids[runtime_buf],
+                                .size = ti.info(src_i, runtime_buf).value().size,
+                            });
+                        }
+                    }));
     }
 
     DAXA_EXPORT_CXX void TaskGraph::copy_image_to_image(TaskImageCopyInfo const & info)
@@ -1229,38 +1247,38 @@ namespace daxa
         auto src_i = TaskImageAttachmentIndex{0};
         auto dst_i = TaskImageAttachmentIndex{1};
 
-        add_task(InlineTaskInfo{
-                     .attachments = {
-                         inl_attachment(TaskImageAccess::TRANSFER_READ, src),
-                         inl_attachment(TaskImageAccess::TRANSFER_WRITE, dst),
-                     },
-                     .task = [=, copy_slice = src.slice](TaskInterface ti)
-                     {
-                         DAXA_DBG_ASSERT_TRUE_M(ti.get(src_i).ids.size() == ti.get(dst_i).ids.size(), "given src and dst must have the same number of runtime resources");
-                         for (u32 runtime_img = 0; runtime_img < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_img)
-                         {
-                             DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().size == ti.info(dst_i, runtime_img).value().size, "given src and dst must have the same size");
-                             DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().array_layer_count == ti.info(dst_i, runtime_img).value().array_layer_count, "given src and dst must have the same array layer count");
-                             DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().mip_level_count == ti.info(dst_i, runtime_img).value().mip_level_count, "given src and dst must have the same mip level count");
-                             for (u32 mip = copy_slice.base_mip_level; mip < (copy_slice.base_mip_level + copy_slice.level_count); ++mip)
-                             {
-                                 ImageArraySlice const array_copy_slice = ImageArraySlice::slice(dst.slice, mip);
-                                 ti.recorder.copy_image_to_image(ImageCopyInfo{
-                                     .src_image = ti.get(src_i).ids[runtime_img],
-                                     .dst_image = ti.get(dst_i).ids[runtime_img],
-                                     .src_slice = array_copy_slice,
-                                     .dst_slice = array_copy_slice,
-                                     .extent = {
-                                         std::max(1u, ti.info(src_i, runtime_img).value().size.x >> mip),
-                                         std::max(1u, ti.info(src_i, runtime_img).value().size.y >> mip),
-                                         std::max(1u, ti.info(src_i, runtime_img).value().size.z >> mip),
-                                     }});
-                             }
-                         }
-                     },
-                     .name = info.name.size() > 0 ? std::string(info.name) : std::string("copy ") + std::string(impl.global_image_infos.at(src.index).get_name()) + " to " + std::string(impl.global_image_infos.at(dst.index).get_name()),
-                 },
-                 {info.queue});
+        auto name = info.name.size() > 0 ? std::string(info.name) : std::string("copy ") + std::string(impl.global_image_infos.at(src.index).get_name()) + " to " + std::string(impl.global_image_infos.at(dst.index).get_name());
+
+        add_task(
+            InlineTask::Transfer(name)
+                .reads(src)
+                .writes(dst)
+                .uses_queue(info.queue)
+                .executes(
+                    [=, copy_slice = src.slice](TaskInterface ti)
+                    {
+                        DAXA_DBG_ASSERT_TRUE_M(ti.get(src_i).ids.size() == ti.get(dst_i).ids.size(), "given src and dst must have the same number of runtime resources");
+                        for (u32 runtime_img = 0; runtime_img < ti.get(TaskImageAttachmentIndex{0}).ids.size(); ++runtime_img)
+                        {
+                            DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().size == ti.info(dst_i, runtime_img).value().size, "given src and dst must have the same size");
+                            DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().array_layer_count == ti.info(dst_i, runtime_img).value().array_layer_count, "given src and dst must have the same array layer count");
+                            DAXA_DBG_ASSERT_TRUE_M(ti.info(src_i, runtime_img).value().mip_level_count == ti.info(dst_i, runtime_img).value().mip_level_count, "given src and dst must have the same mip level count");
+                            for (u32 mip = copy_slice.base_mip_level; mip < (copy_slice.base_mip_level + copy_slice.level_count); ++mip)
+                            {
+                                ImageArraySlice const array_copy_slice = ImageArraySlice::slice(dst.slice, mip);
+                                ti.recorder.copy_image_to_image(ImageCopyInfo{
+                                    .src_image = ti.get(src_i).ids[runtime_img],
+                                    .dst_image = ti.get(dst_i).ids[runtime_img],
+                                    .src_slice = array_copy_slice,
+                                    .dst_slice = array_copy_slice,
+                                    .extent = {
+                                        std::max(1u, ti.info(src_i, runtime_img).value().size.x >> mip),
+                                        std::max(1u, ti.info(src_i, runtime_img).value().size.y >> mip),
+                                        std::max(1u, ti.info(src_i, runtime_img).value().size.z >> mip),
+                                    }});
+                            }
+                        }
+                    }));
     }
 
     static inline constexpr std::array<ImageId, 64> NULL_IMG_ARRAY = {};
@@ -1299,7 +1317,7 @@ namespace daxa
                 << " in task graph \""
                 << info.name
                 << "\". Please make sure to declare persistent resource use to each task graph that uses this image with the function use_persistent_image!");
-            return TaskImageView{{.task_graph_index = this->unique_index, .index = persistent_image_index_to_local_index.at(id.index)}, id.slice};
+            return TaskImageView{.task_graph_index = this->unique_index, .index = persistent_image_index_to_local_index.at(id.index), .slice = id.slice};
         }
         else
         {
@@ -1310,7 +1328,7 @@ namespace daxa
                 << " in task graph \""
                 << info.name
                 << "\". Please make sure that you only use transient image within the list they are created in!");
-            return TaskImageView{{.task_graph_index = this->unique_index, .index = id.index}, id.slice};
+            return TaskImageView{.task_graph_index = this->unique_index, .index = id.index, .slice = id.slice};
         }
     }
 
@@ -1332,7 +1350,7 @@ namespace daxa
     void validate_runtime_image_slice(ImplTaskGraph & impl, TaskGraphPermutation const & perm, u32 use_index, u32 task_image_index, ImageMipArraySlice const & access_slice)
     {
 #if DAXA_VALIDATION
-        auto const actual_images = impl.get_actual_images(TaskImageView{{.task_graph_index = impl.unique_index, .index = task_image_index}}, perm);
+        auto const actual_images = impl.get_actual_images(TaskImageView{.task_graph_index = impl.unique_index, .index = task_image_index}, perm);
         std::string_view task_name = impl.global_image_infos[task_image_index].get_name();
         for (u32 index = 0; index < actual_images.size(); ++index)
         {
@@ -1357,7 +1375,7 @@ namespace daxa
     {
 #if DAXA_VALIDATION
         ImageUsageFlags const use_flags = access_to_usage(task_access);
-        auto const actual_images = impl.get_actual_images(TaskImageView{{.task_graph_index = impl.unique_index, .index = task_image_index}}, perm);
+        auto const actual_images = impl.get_actual_images(TaskImageView{.task_graph_index = impl.unique_index, .index = task_image_index}, perm);
         std::string_view task_image_name = impl.global_image_infos[task_image_index].get_name();
         for (auto image : actual_images)
         {
@@ -1921,14 +1939,13 @@ namespace daxa
         // Make sure we have enough batches.
         if (first_possible_batch_index >= queue_submit_scope.task_batches.size())
         {
-            queue_submit_scope.task_batches.resize(static_cast<u32>(first_possible_batch_index + 1), 
-                TaskBatch{
-                    .pipeline_barrier_indices = { &impl.mk2.task_memory },
-                    .wait_split_barrier_indices = { &impl.mk2.task_memory },
-                    .tasks = { &impl.mk2.task_memory },
-                    .signal_split_barrier_indices = { &impl.mk2.task_memory },
-                }
-            );
+            queue_submit_scope.task_batches.resize(first_possible_batch_index + 1,
+                                                   TaskBatch{
+                                                       .pipeline_barrier_indices = {&impl.mk2.task_memory},
+                                                       .wait_split_barrier_indices = {&impl.mk2.task_memory},
+                                                       .tasks = {&impl.mk2.task_memory},
+                                                       .signal_split_barrier_indices = {&impl.mk2.task_memory},
+                                                   });
         }
         return first_possible_batch_index;
     }
@@ -1957,61 +1974,6 @@ namespace daxa
             },
             [&](u32, TaskImageAttachmentInfo & attach)
             {
-                attach.translated_view = impl.id_to_local_id(attach.view);
-            });
-    }
-
-    void apply_attachment_stage_overrides(ImplTaskGraph const & impl, ImplTask & task)
-    {
-        TaskStage default_stage = task_type_default_stage(task.task_type);
-        auto apply_validate_stage_override = [&](u32 i, auto & attach)
-        {
-            if (attach.task_access.stage == TaskStage::NONE)
-            {
-                // Apply default stage:
-                if (default_stage != TaskStage::NONE)
-                {
-                    attach.task_access.stage = default_stage;
-                }
-                // Apply view stage:
-                if (attach.view.stage_override != TaskStage::NONE)
-                {
-                    attach.task_access.stage = attach.view.stage_override;
-                }
-                DAXA_DBG_ASSERT_TRUE_M(
-                    attach.task_access.stage != TaskStage::NONE,
-                    std::format("Detected TaskAttachment (\"{}\", idx {}) in Task \"{}\" with no stage set."
-                                "The stage of a TaskAttachment must be set in either 1. the task head, 2. the access type or 3. in a view stage override!",
-                                attach.name, i, task.name));
-            }
-            else
-            {
-                DAXA_DBG_ASSERT_TRUE_M(
-                    attach.view.stage_override == TaskStage::NONE,
-                    std::format("Detected TaskAttachment (\"{}\", idx {}) in Task \"{}\" has view stage override but attachment has fixed stage.",
-                                attach.name, i, task.name));
-            }
-        };
-        for_each(
-            task.attachments,
-            [&](u32 i, auto & attach)
-            {
-                if (attach.view.access_type_override != TaskAccessType::NONE)
-                {
-                    attach.task_access.type = attach.view.access_type_override;
-                }
-                apply_validate_stage_override(i, attach);
-                validate_buffer_blas_tlas_task_view(task, i, attach);
-                attach.translated_view = impl.buffer_blas_tlas_id_to_local_id(attach.view);
-            },
-            [&](u32 i, TaskImageAttachmentInfo & attach)
-            {
-                if (attach.view.access_type_override != TaskAccessType::NONE)
-                {
-                    attach.task_access.type = attach.view.access_type_override;
-                }
-                apply_validate_stage_override(i, attach);
-                validate_image_task_view(task, i, attach);
                 attach.translated_view = impl.id_to_local_id(attach.view);
             });
     }
@@ -2086,14 +2048,14 @@ namespace daxa
         u32 attachment_shader_blob_alignment,
         TaskType task_type,
         std::string_view name,
-        TaskAddInfo const & add_info)
+        Queue queue)
     {
         auto & impl = *reinterpret_cast<ImplTaskGraph *>(this->object);
         validate_not_compiled(impl);
 
         TaskId const task_id = impl.tasks.size();
 
-        auto queue = add_info.queue == QUEUE_NONE ? impl.info.default_queue : add_info.queue;
+        queue = queue == QUEUE_NONE ? impl.info.default_queue : queue;
 
         auto runtime_images_last_execution_array = impl.mk2.task_memory.allocate_trivial_span_fill<DynamicArenaArray8k<ImageId>>(
             attachments.size(),
@@ -2110,11 +2072,10 @@ namespace daxa
             .image_view_cache = allocate_view_cache(impl, attachments),
             .runtime_images_last_execution = runtime_images_last_execution_array,
         };
-        apply_attachment_stage_overrides(impl, impl_task);
+        validate_attachment_stages(impl, impl_task);
         validate_task_type_queue(impl, impl_task, queue);
         validate_attachment_views(impl, impl_task);
         translate_persistent_ids(impl, impl_task);
-        validate_attachment_stages(impl, impl_task);
         validate_overlapping_attachment_views(impl, impl_task);
 
         for (auto * permutation : impl.record_active_permutations)
@@ -2836,7 +2797,7 @@ namespace daxa
         }
     }
 
-    void TaskGraphPermutation::submit(MemoryArena* allocator, TaskSubmitInfo const & info)
+    void TaskGraphPermutation::submit(MemoryArena * allocator, TaskSubmitInfo const & info)
     {
         // We provide the user submit info to the submit batch.
         // Start a new batch.
@@ -2845,13 +2806,13 @@ namespace daxa
         submit_scope.user_submit_info = info;
         {
             auto queue_submit_scopes = std::array{
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
-                QueueSubmitScope{ .last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator} },
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
+                QueueSubmitScope{.last_minute_barrier_indices = {allocator}, .task_batches = {allocator}, .used_swapchain_task_images = {allocator}},
             };
             this->batch_submit_scopes.push_back(TaskBatchSubmitScope{
                 .queue_submit_scopes = queue_submit_scopes,
@@ -3376,7 +3337,7 @@ namespace daxa
             // Buffers never need layout initialization, only images.
             for (u32 task_image_index = 0; task_image_index < permutation.image_infos.size(); ++task_image_index)
             {
-                TaskImageView const task_image_id = {{impl.unique_index, task_image_index}};
+                TaskImageView const task_image_id = {impl.unique_index, task_image_index};
                 auto & task_image = permutation.image_infos[task_image_index];
                 PermIndepTaskImageInfo const & glob_task_image = impl.global_image_infos[task_image_index];
                 if (task_image.valid && !glob_task_image.is_persistent())
@@ -3607,7 +3568,7 @@ namespace daxa
                             previous_access_slices[previous_access_slice_index].latest_layout;
                         if (!(both_accesses_read && both_layouts_same))
                         {
-                            for (auto execution_image_id : impl.get_actual_images(TaskImageView{{.task_graph_index = impl.unique_index, .index = task_image_index}}, permutation))
+                            for (auto execution_image_id : impl.get_actual_images(TaskImageView{.task_graph_index = impl.unique_index, .index = task_image_index}, permutation))
                             {
                                 ImageMemoryBarrierInfo const img_barrier_info{
                                     .src_access = previous_access_slices[previous_access_slice_index].latest_access,
@@ -3669,7 +3630,7 @@ namespace daxa
                 // we need to synchronize from an undefined state to initialize the layout of the image.
                 for (auto & remaining_first_accesse : remaining_first_accesses)
                 {
-                    for (auto execution_image_id : impl.get_actual_images(TaskImageView{{.task_graph_index = impl.unique_index, .index = task_image_index}}, permutation))
+                    for (auto execution_image_id : impl.get_actual_images(TaskImageView{.task_graph_index = impl.unique_index, .index = task_image_index}, permutation))
                     {
                         ImageMemoryBarrierInfo const img_barrier_info{
                             .src_access = AccessConsts::NONE,
@@ -4155,7 +4116,7 @@ namespace daxa
                 auto & perm_image = permutation.image_infos.at(image_info_idx);
                 if (!global_image.is_persistent() && perm_image.valid)
                 {
-                    info.device.destroy_image(get_actual_images(TaskImageView{{.task_graph_index = unique_index, .index = image_info_idx}}, permutation)[0]);
+                    info.device.destroy_image(get_actual_images(TaskImageView{.task_graph_index = unique_index, .index = image_info_idx}, permutation)[0]);
                 }
             }
         }
