@@ -126,8 +126,9 @@ namespace daxa
     auto create_feature_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> std::pair<daxa_ImplicitFeatureFlags, daxa_ExplicitFeatureFlags>;
 
     auto create_problem_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> daxa_MissingRequiredVkFeature;
+    auto create_reccommended_problem_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> daxa_MissingReccommendedVkFeatureFlags;
 
-    void fill_create_features(PhysicalDeviceFeaturesStruct & device_create_features, daxa_ImplicitFeatureFlags feature, daxa_ExplicitFeatureFlags explicit_features);
+    void fill_create_features(daxa_DeviceProperties const & physical_device_prop, PhysicalDeviceFeaturesStruct & device_create_features, daxa_ImplicitFeatureFlags feature, daxa_ExplicitFeatureFlags explicit_features);
 
     struct DevicePropertiesStruct
     {

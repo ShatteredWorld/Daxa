@@ -293,11 +293,20 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
     surface_extent.width = surface_capabilities.currentExtent.width;
     surface_extent.height = surface_capabilities.currentExtent.height;
 
+    if (surface_extent.width == UINT32_MAX || surface_extent.height == UINT32_MAX)
+    {
+        // If the surface extent is undefined, we can use the window size.
+        DAXA_DBG_ASSERT_TRUE_M(this->info.native_window.get_window_extent != nullptr, "Native window handle must have a get_window_extent function pointer set when not using opaque pointer kind.");
+        Extent2D window_ext = info.native_window.get_window_extent(info.native_window.userData);
+        surface_extent.width = window_ext.x;
+        surface_extent.height = window_ext.y;
+    }
+
 #if __linux__
     // TODO(grundlett): I (grundlett) am too lazy to find out why the other present modes
     // fail on Linux. This can be inspected by Linux people and they can
     // submit a PR if they find a fix.
-    info.present_mode = PresentMode::IMMEDIATE;
+    //info.present_mode = PresentMode::IMMEDIATE;
 #endif
 
     auto * old_swapchain = this->vk_swapchain;

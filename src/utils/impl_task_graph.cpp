@@ -2207,7 +2207,7 @@ namespace daxa
     void validate_task_queue_insertion(ImplTaskGraph & impl, TaskGraphPermutation & perm, ImplTask & task, Queue queue)
     {
         // Its invalid to use any other queue than the default queue in the first submit scope!
-        u32 const current_submit_scope = static_cast<u32>(std::max(perm.batch_submit_scopes.size(), 1ull) - 1ull);
+        u32 const current_submit_scope = static_cast<u32>(std::max(perm.batch_submit_scopes.size(), 1ul) - 1ul);
         if (current_submit_scope == 0)
         {
             bool const is_default_queue = queue == impl.info.default_queue;

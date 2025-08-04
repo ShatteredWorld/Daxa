@@ -63,13 +63,15 @@ auto make_subresource_layers(ImageArraySlice const & slice, VkImageAspectFlags a
 }
 auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[maybe_unused]] daxa_NativeWindowPlatform platform, VkSurfaceKHR * out_surface) -> daxa_Result
 {
+    if(handle.kind == DAXA_NATIVE_WINDOW_KIND_OPAQUE_POINTER)
+    {
 #if defined(_WIN32)
     VkWin32SurfaceCreateInfoKHR const surface_ci{
         .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
         .pNext = nullptr,
         .flags = 0,
         .hinstance = GetModuleHandleA(nullptr),
-        .hwnd = static_cast<HWND>(handle),
+        .hwnd = static_cast<HWND>(handle.handle),
     };
     {
         auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
@@ -87,8 +89,8 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
             .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
-            .display = wl_display_connect(nullptr),
-            .surface = static_cast<wl_surface *>(handle),
+            .display = /*static_cast<wl_display *>(handle.wayland.display),//*/wl_display_connect(nullptr),
+            .surface = static_cast<wl_surface *>(handle.handle),
         };
         {
             auto func = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
@@ -106,8 +108,8 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
             .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
-            .dpy = XOpenDisplay(nullptr),
-            .window = reinterpret_cast<Window>(handle),
+            .dpy = /*static_cast<Display*>(handle.x11.display),//*/XOpenDisplay(nullptr),
+            .window = reinterpret_cast<Window>(handle.handle),
         };
         {
             auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
@@ -119,6 +121,13 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
     }
 #endif
 #endif
+    }
+    else
+    {
+        DAXA_DBG_ASSERT_TRUE_M(handle.get_window_surface != nullptr, "Native window handle must have a get_window_surface function pointer set when not using opaque pointer kind.");
+        VkResult vk_result = handle.get_window_surface(instance->vk_instance, handle.userData, out_surface);
+        return std::bit_cast<daxa_Result>(vk_result);
+    }
 }
 
 #define DAXA_ASSIGN_ARRAY_3(SRC) \

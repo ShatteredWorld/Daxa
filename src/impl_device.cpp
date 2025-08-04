@@ -1704,7 +1704,7 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
 
     PhysicalDeviceFeaturesStruct enabled_features = {};
     enabled_features.initialize(physical_device.extensions);
-    fill_create_features(enabled_features, properties.implicit_features, info.explicit_features);
+    fill_create_features(properties, enabled_features, properties.implicit_features, info.explicit_features);
 
     VkDeviceCreateInfo const device_ci = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,

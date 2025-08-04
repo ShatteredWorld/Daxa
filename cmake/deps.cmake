@@ -70,9 +70,14 @@ endif()
 
 if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG AND NOT TARGET slang::slang)
     set(Slang_VERSION "2025.11")
+    if(WIN32)
+        set(Slang_OS "windows")
+    else()
+        set(Slang_OS "linux")
+    endif()
     FetchContent_Declare(
         slang
-        URL https://github.com/shader-slang/slang/releases/download/v${Slang_VERSION}/slang-${Slang_VERSION}-windows-x86_64.zip
+        URL https://github.com/shader-slang/slang/releases/download/v${Slang_VERSION}/slang-${Slang_VERSION}-${Slang_OS}-x86_64.zip
         # URL https://github.com/shader-slang/slang/releases/download/v2025.11/slang-2025.11-windows-x86_64.zip
     )
     FetchContent_MakeAvailable(slang)
@@ -101,7 +106,7 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG AND NOT TARGET slang::slang)
             DOC "Slang shared library (.dll)"
         )
     else() # Unix; uses .so
-        set(Slang_DLL ${Slang_LIBRARY} CACHE PATH "Slang shared library (.so)")
+        set(Slang_DLL ${Slang_LIBRARY} PATH "Slang shared library (.so)")
     endif()
     mark_as_advanced(Slang_DLL)
 

@@ -27,6 +27,7 @@ auto daxa_create_instance(daxa_InstanceInfo const * info, daxa_Instance * out_in
     implicit_extensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
     implicit_extensions.push_back("VK_KHR_win32_surface");
     implicit_extensions.push_back("VK_KHR_xlib_surface");
+    implicit_extensions.push_back("VK_KHR_xcb_surface");
     implicit_extensions.push_back("VK_KHR_wayland_surface");
 
     // Check existence of extensions:
@@ -173,7 +174,7 @@ auto daxa_instance_create_device(daxa_Instance self, daxa_DeviceInfo const * leg
     {
         auto & props = self->device_properties[i];
 
-        bool no_support_problems = props.missing_required_feature == DAXA_MISSING_REQUIRED_VK_FEATURE_NONE;
+        bool no_support_problems = props.missing_required_feature == DAXA_MISSING_REQUIRED_VK_FEATURE_NONE && props.missing_reccommended_features == DAXA_MISSING_RECCOMMENDED_VK_FEATURE_NONE;
 
         bool matches_info =
             info.max_allowed_buffers <= props.limits.max_descriptor_set_storage_buffers &&
@@ -234,7 +235,7 @@ auto daxa_instance_choose_device(daxa_Instance self, daxa_ImplicitFeatureFlags d
     {
         auto & props = self->device_properties[i];
 
-        bool const no_support_problems = props.missing_required_feature == DAXA_MISSING_REQUIRED_VK_FEATURE_NONE;
+        bool const no_support_problems = props.missing_required_feature == DAXA_MISSING_REQUIRED_VK_FEATURE_NONE;// && props.missing_reccommended_features == DAXA_MISSING_RECCOMMENDED_VK_FEATURE_NONE;
 
         bool matches_info =
             info->max_allowed_buffers <= props.limits.max_descriptor_set_storage_buffers &&

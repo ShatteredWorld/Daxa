@@ -232,9 +232,9 @@ namespace daxa
         WIDE_LINES,
         SAMPLER_ANISOTROPY,
         FRAGMENT_STORES_AND_ATOMICS,
-        SHADER_STORAGE_IMAGE_MULTISAMPLE,
-        SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT,
-        SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT,
+        //SHADER_STORAGE_IMAGE_MULTISAMPLE,
+        //SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT,
+        //SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT,
         SHADER_INT64,
         IMAGE_GATHER_EXTENDED,
         VARIABLE_POINTERS_STORAGE_BUFFER,
@@ -264,6 +264,15 @@ namespace daxa
         ROBUST_BUFFER_ACCESS2,
         ROBUST_IMAGE_ACCESS2,
         MAX_ENUM
+    };
+
+    enum struct MissingReccommendedVkFeatureFlags
+    {
+        //TODO: FILL
+        NONE = 0,
+        SHADER_STORAGE_IMAGE_MULTISAMPLE = 0x1 << 0,
+        SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = 0x1 << 1,
+        SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT = 0x1 << 2,
     };
 
     struct ExplicitFeatureProperties
@@ -324,6 +333,7 @@ namespace daxa
         ImplicitFeatureFlags implicit_features;
         ExplicitFeatureFlags explicit_features;
         MissingRequiredVkFeature missing_required_feature;
+        MissingReccommendedVkFeatureFlags missing_reccommended_features;
     };
 
 #if !DAXA_REMOVE_DEPRECATED

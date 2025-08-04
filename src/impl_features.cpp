@@ -190,7 +190,7 @@ namespace daxa
     };
 
     constexpr static std::array REQUIRED_FEATURES = std::array{
-        RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageMultisample), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE},
+        //RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageMultisample), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.imageCubeArray), DAXA_MISSING_REQUIRED_VK_FEATURE_IMAGE_CUBE_ARRAY},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.independentBlend), DAXA_MISSING_REQUIRED_VK_FEATURE_INDEPENDENT_BLEND},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.tessellationShader), DAXA_MISSING_REQUIRED_VK_FEATURE_TESSELLATION_SHADER},
@@ -200,8 +200,8 @@ namespace daxa
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.wideLines), DAXA_MISSING_REQUIRED_VK_FEATURE_WIDE_LINES},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.samplerAnisotropy), DAXA_MISSING_REQUIRED_VK_FEATURE_SAMPLER_ANISOTROPY},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.fragmentStoresAndAtomics), DAXA_MISSING_REQUIRED_VK_FEATURE_FRAGMENT_STORES_AND_ATOMICS},
-        RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageReadWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT},
-        RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageWriteWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT},
+        //RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageReadWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT},
+        //RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageWriteWithoutFormat), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderInt64), DAXA_MISSING_REQUIRED_VK_FEATURE_SHADER_INT64},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderImageGatherExtended), DAXA_MISSING_REQUIRED_VK_FEATURE_IMAGE_GATHER_EXTENDED}, // Slang constantly adds this SPIRV feature.
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_variable_pointer_features.variablePointersStorageBuffer), DAXA_MISSING_REQUIRED_VK_FEATURE_VARIABLE_POINTERS_STORAGE_BUFFER},
@@ -224,6 +224,20 @@ namespace daxa
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_subgroup_size_control_features.computeFullSubgroups), DAXA_MISSING_REQUIRED_VK_FEATURE_COMPUTE_FULL_SUBGROUPS},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_scalar_block_layout_features.scalarBlockLayout), DAXA_MISSING_REQUIRED_VK_FEATURE_SCALAR_BLOCK_LAYOUT},
         RequiredFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_host_image_copy_features_ext.hostImageCopy), DAXA_MISSING_REQUIRED_VK_FEATURE_SCALAR_BLOCK_LAYOUT},
+    };
+
+    // === Reccommended Features ===
+
+    struct ReccommendedFeature
+    {
+        u64 offset = {};
+        daxa_MissingReccommendedVkFeatureFlags problem = {};
+    };
+    
+    constexpr static std::array RECCOMMENDED_FEATURES = std::array{
+        ReccommendedFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageMultisample), DAXA_MISSING_RECCOMMENDED_VK_FEATURE_SHADER_STORAGE_IMAGE_MULTISAMPLE},
+        ReccommendedFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageReadWithoutFormat), DAXA_MISSING_RECCOMMENDED_VK_FEATURE_SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT},
+        ReccommendedFeature{offsetof(PhysicalDeviceFeaturesStruct, physical_device_features_2.features.shaderStorageImageWriteWithoutFormat), DAXA_MISSING_RECCOMMENDED_VK_FEATURE_SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT},
     };
 
     // === Implicit Features ===
@@ -435,7 +449,25 @@ namespace daxa
         return problems;
     }
 
+    auto create_reccommended_problem_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> daxa_MissingReccommendedVkFeatureFlags
+    {
+        daxa_MissingReccommendedVkFeatureFlags problems = {};
+        std::byte const * address = reinterpret_cast<std::byte const *>(&physical_device_features);
+        for (auto const & feature : RECCOMMENDED_FEATURES)
+        {
+            VkBool32 value = *reinterpret_cast<VkBool32 const *>(address + feature.offset);
+            if (!value)
+            {
+                //problems = feature.problem;
+                problems = static_cast<daxa_MissingReccommendedVkFeatureFlags>(problems | feature.problem);
+                //break;
+            }
+        }
+        return problems;
+    }
+
     void fill_create_features(
+        daxa_DeviceProperties const & physical_device_prop,
         PhysicalDeviceFeaturesStruct & device_create_features,
         daxa_ImplicitFeatureFlags implicit_feature_flags,
         daxa_ExplicitFeatureFlags explicit_feature_flags)
@@ -445,6 +477,11 @@ namespace daxa
         {
             VkBool32 & value = *reinterpret_cast<VkBool32 *>(address + feature.offset);
             value = VK_TRUE;
+        }
+        for (auto const & feature : RECCOMMENDED_FEATURES)
+        {
+            VkBool32 & value = *reinterpret_cast<VkBool32 *>(address + feature.offset);
+            value = !(physical_device_prop.missing_reccommended_features & feature.problem);
         }
         for (auto const & feature : IMPLICIT_FEATURES)
         {
@@ -513,6 +550,7 @@ namespace daxa
         out->explicit_features = flags.second;
 
         out->missing_required_feature = create_problem_flags(features);
+        out->missing_reccommended_features = create_reccommended_problem_flags(features);
 
         DevicePropertiesStruct properties_struct = {};
         properties_struct.initialize(out->implicit_features);

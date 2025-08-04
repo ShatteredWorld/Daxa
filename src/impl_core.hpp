@@ -33,7 +33,9 @@
 #elif defined(__linux__)
 #if DAXA_BUILT_WITH_X11
 #include <X11/Xlib.h>
+#include <X11/Xlib-xcb.h>
 #define VK_USE_PLATFORM_XLIB_KHR
+#define VK_USE_PLATFORM_XCB_KHR
 // NOTE(grundlett): Cope due to X11 defines
 #ifdef None
 #undef None
