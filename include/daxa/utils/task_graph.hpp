@@ -574,7 +574,7 @@ namespace daxa
         };
 
       private:
-#ifndef __clang__ // MSVC STL does not implement these for clang :/
+#if !defined(__clang__) && !defined(__GNUC__) // MSVC STL does not implement these for clang or gcc :/
         // Per c++ spec, it is only legal to access multiple union members at the same time IF AND ONLY IF:
         // * all types in the union are standard layout
         // * all types in the union share a common initial sequence for all members accessed

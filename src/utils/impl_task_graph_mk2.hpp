@@ -305,10 +305,14 @@ namespace daxa
         }
 
         template<bool CONST_ITER>
-        struct IterInternalT;
+        struct IterInternalT 
+        {
+            using TYPE = std::conditional_t<CONST_ITER, DynamicArenaArray8k<T> const*, DynamicArenaArray8k<T>*>;
+        };
+        /*struct IterInternalT;
 
         template <> struct IterInternalT<true> { using TYPE = DynamicArenaArray8k<T> const*; };
-        template <> struct IterInternalT<false> { using TYPE = DynamicArenaArray8k<T>*; };
+        template <> struct IterInternalT<false> { using TYPE = DynamicArenaArray8k<T>*; };*/
 
         template <typename IT, bool CONST_ITER>
         struct ForwardIterator

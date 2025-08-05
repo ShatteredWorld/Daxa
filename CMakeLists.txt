@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
 
-#TODO: fix GCC compilation issues
-
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/warnings.cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
