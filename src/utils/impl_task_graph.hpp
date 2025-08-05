@@ -2,6 +2,7 @@
 
 #include "../impl_core.hpp"
 
+#include <atomic>
 #include <variant>
 #include <sstream>
 #include <daxa/utils/task_graph.hpp>
