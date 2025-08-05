@@ -66,60 +66,60 @@ auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[ma
     if(handle.kind == DAXA_NATIVE_WINDOW_KIND_OPAQUE_POINTER)
     {
 #if defined(_WIN32)
-    VkWin32SurfaceCreateInfoKHR const surface_ci{
-        .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-        .pNext = nullptr,
-        .flags = 0,
-        .hinstance = GetModuleHandleA(nullptr),
-        .hwnd = static_cast<HWND>(handle.handle),
-    };
-    {
-        auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
-        VkResult const vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
-        return std::bit_cast<daxa_Result>(vk_result);
-    }
-#elif defined(__linux__)
-    switch (std::bit_cast<daxa::NativeWindowPlatform>(platform))
-    {
-#if DAXA_BUILT_WITH_WAYLAND
-    case NativeWindowPlatform::WAYLAND_API:
-    {
-        // TODO(grundlett): figure out how to link Wayland
-        VkWaylandSurfaceCreateInfoKHR surface_ci{
-            .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+        VkWin32SurfaceCreateInfoKHR const surface_ci{
+            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
             .pNext = nullptr,
             .flags = 0,
-            .display = /*static_cast<wl_display *>(handle.wayland.display),//*/wl_display_connect(nullptr),
-            .surface = static_cast<wl_surface *>(handle.handle),
+            .hinstance = GetModuleHandleA(nullptr),
+            .hwnd = static_cast<HWND>(handle.handle),
         };
         {
-            auto func = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
-            VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
+            auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
+            VkResult const vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
             return std::bit_cast<daxa_Result>(vk_result);
         }
-    }
-    break;
+#elif defined(__linux__)
+        switch (std::bit_cast<daxa::NativeWindowPlatform>(platform))
+        {
+#if DAXA_BUILT_WITH_WAYLAND
+            case NativeWindowPlatform::WAYLAND_API:
+            {
+                // TODO(grundlett): figure out how to link Wayland
+                VkWaylandSurfaceCreateInfoKHR surface_ci{
+                    .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+                    .pNext = nullptr,
+                    .flags = 0,
+                    .display = /*static_cast<wl_display *>(handle.wayland.display),//*/wl_display_connect(nullptr),
+                    .surface = static_cast<wl_surface *>(handle.handle),
+                };
+                {
+                    auto func = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
+                    VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
+                    return std::bit_cast<daxa_Result>(vk_result);
+                }
+            }
+            break;
 #endif
 #if DAXA_BUILT_WITH_X11
-    case NativeWindowPlatform::XLIB_API:
-    default:
-    {
-        VkXlibSurfaceCreateInfoKHR surface_ci{
-            .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-            .pNext = nullptr,
-            .flags = 0,
-            .dpy = /*static_cast<Display*>(handle.x11.display),//*/XOpenDisplay(nullptr),
-            .window = reinterpret_cast<Window>(handle.handle),
-        };
-        {
-            auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
-            VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
-            return std::bit_cast<daxa_Result>(vk_result);
-        }
-    }
-    break;
-    }
+            case NativeWindowPlatform::XLIB_API:
+            {
+                VkXlibSurfaceCreateInfoKHR surface_ci{
+                    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+                    .pNext = nullptr,
+                    .flags = 0,
+                    .dpy = /*static_cast<Display*>(handle.x11.display),//*/XOpenDisplay(nullptr),
+                    .window = reinterpret_cast<Window>(handle.handle),
+                };
+                {
+                    auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
+                    VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
+                    return std::bit_cast<daxa_Result>(vk_result);
+                }
+            }
+            break;
 #endif
+            default: DAXA_DBG_ASSERT_TRUE_M(false, "Unsupported platform for opaque pointer window handle.");
+        }
 #endif
     }
     else
