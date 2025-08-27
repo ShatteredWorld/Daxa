@@ -48,6 +48,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Setup Vulkan SDK
+      uses: humbletim/setup-vulkan-sdk@v1.2.1
+      with:
+        vulkan-query-version: 1.4.304.1
+        vulkan-components: Vulkan-Headers, Vulkan-Loader
+        vulkan-use-cache: true
+
+    - name: Install Linux dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libwayland-dev libxkbcommon-dev xorg-dev libX11-xcb-dev
+
     - name: Set reusable strings
       # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
@@ -77,20 +90,19 @@ jobs:
         -S ${{ github.workspace }}
 
     - name: Build
-      # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
       run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
     - name: Install
-      # Install the built artifacts to a clean directory structure
       run: cmake --install ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }} --prefix ${{ github.workspace }}/install
 
     - name: Package build artifacts
       shell: bash
       run: |
-        cd ${{ github.workspace }}/install
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          cd "${{ github.workspace }}/install"
           7z a -tzip "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}.zip" .
         else
+          cd "${{ github.workspace }}/install"
           zip -r "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}.zip" .
         fi
 
