@@ -197,3 +197,17 @@ if(DAXA_ENABLE_TOOLS)
     target_compile_definitions(daxa_tools_compile_imgui_shaders PRIVATE DAXA_COMPILE_IMGUI_SHADERS=true)
     target_link_libraries(daxa_tools_compile_imgui_shaders PRIVATE daxa::daxa)
 endif()
+
+include(GNUInstallDirs)
+
+install(TARGETS daxa
+    EXPORT daxaTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)

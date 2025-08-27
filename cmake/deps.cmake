@@ -26,16 +26,19 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_GLSLANG AND NOT TARGET glslang::glslang)
 endif()
 
 if (DAXA_ENABLE_TESTS AND NOT TARGET glfw)
+    set(UNITY_OG ${CMAKE_UNITY_BUILD})
     option(GLFW_BUILD_TESTS "" OFF)
     option(GLFW_BUILD_DOCS "" OFF)
     option(GLFW_INSTALL "" OFF)
     option(GLFW_BUILD_EXAMPLES "" OFF)
+    set(CMAKE_UNITY_BUILD OFF)
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw
         GIT_TAG        3.4
     )
     FetchContent_MakeAvailable(glfw)
+    set(CMAKE_UNITY_BUILD ${UNITY_OG})
 endif()
 
 if (DAXA_ENABLE_UTILS_IMGUI AND NOT TARGET imgui::imgui)

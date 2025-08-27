@@ -30,10 +30,13 @@ function(DAXA_CREATE_TEST)
         endif()
     endif()
 
-    add_custom_command(TARGET daxa_test_${FOLDER_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:daxa_test_${FOLDER_NAME}> $<TARGET_FILE_DIR:daxa_test_${FOLDER_NAME}>
-        COMMAND_EXPAND_LISTS
-    )
+    if(WIN32)
+        add_custom_command(TARGET daxa_test_${FOLDER_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:daxa_test_${FOLDER_NAME}> $<TARGET_FILE_DIR:daxa_test_${FOLDER_NAME}>
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
+    
 endfunction()
 
 function(DAXA_CREATE_TEST_C)
