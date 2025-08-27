@@ -27,11 +27,11 @@ endif()
 
 if (DAXA_ENABLE_TESTS AND NOT TARGET glfw)
     set(UNITY_OG ${CMAKE_UNITY_BUILD})
+    set(CMAKE_UNITY_BUILD OFF)
     option(GLFW_BUILD_TESTS "" OFF)
     option(GLFW_BUILD_DOCS "" OFF)
     option(GLFW_INSTALL "" OFF)
     option(GLFW_BUILD_EXAMPLES "" OFF)
-    set(CMAKE_UNITY_BUILD OFF)
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw
