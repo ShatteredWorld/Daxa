@@ -48,6 +48,18 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Cache CMake build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/build
+          ~/.ccache
+        key: ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-
+          ${{ runner.os }}-${{ matrix.c_compiler }}-
+          ${{ runner.os }}-
+
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.1
       with:
@@ -59,10 +71,19 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwayland-dev libxkbcommon-dev xorg-dev
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+        sudo apt-get update
+
+        sudo apt-get install -y gcc-14 g++-14 clang-19 libwayland-dev libxkbcommon-dev xorg-dev libxcb1-dev
+        
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100
+        sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-19 100
+        sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-19 100
+
+        echo "/usr/lib/ccache" >> $GITHUB_PATH
 
     - name: Set reusable strings
-      # Turn repeated input strings (such as the build output directory) into step outputs. These step outputs can be used throughout the workflow file.
       id: strings
       shell: bash
       run: |
@@ -86,7 +107,6 @@ jobs:
         -DDAXA_ENABLE_TESTS=false
         -DDAXA_ENABLE_TOOLS=false
         -DDAXA_ENABLE_STATIC_ANALYSIS=false
-        -DCMAKE_EXPORT_COMPILE_COMMANDS=true
         -S ${{ github.workspace }}
 
     - name: Build

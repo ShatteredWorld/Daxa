@@ -186,7 +186,7 @@ namespace daxa
     struct RequiredFeature
     {
         u64 offset = {};
-        daxa_MissingRequiredVkFeature problem = {};
+        daxa_MissingRequiredVkFeatureFlags problem = {};
     };
 
     constexpr static std::array REQUIRED_FEATURES = std::array{
@@ -433,17 +433,16 @@ namespace daxa
         return {implicit_flags, explicit_flags};
     }
 
-    auto create_problem_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> daxa_MissingRequiredVkFeature
+    auto create_problem_flags(PhysicalDeviceFeaturesStruct const & physical_device_features) -> daxa_MissingRequiredVkFeatureFlags
     {
-        daxa_MissingRequiredVkFeature problems = {};
+        daxa_MissingRequiredVkFeatureFlags problems = {};
         std::byte const * address = reinterpret_cast<std::byte const *>(&physical_device_features);
         for (auto const & feature : REQUIRED_FEATURES)
         {
             VkBool32 value = *reinterpret_cast<VkBool32 const *>(address + feature.offset);
             if (!value)
             {
-                problems = feature.problem;
-                break;
+                problems = static_cast<daxa_MissingRequiredVkFeatureFlags>(problems | feature.problem);
             }
         }
         return problems;
@@ -458,9 +457,7 @@ namespace daxa
             VkBool32 value = *reinterpret_cast<VkBool32 const *>(address + feature.offset);
             if (!value)
             {
-                //problems = feature.problem;
                 problems = static_cast<daxa_MissingReccommendedVkFeatureFlags>(problems | feature.problem);
-                //break;
             }
         }
         return problems;

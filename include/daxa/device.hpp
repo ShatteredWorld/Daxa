@@ -220,59 +220,64 @@ namespace daxa
     };
 #endif
 
-    enum struct MissingRequiredVkFeature
+    struct MissingRequiredVkFeatureProperties
     {
-        NONE,
-        IMAGE_CUBE_ARRAY,
-        INDEPENDENT_BLEND,
-        TESSELLATION_SHADER,
-        MULTI_DRAW_INDIRECT,
-        DEPTH_CLAMP,
-        FILL_MODE_NON_SOLID,
-        WIDE_LINES,
-        SAMPLER_ANISOTROPY,
-        FRAGMENT_STORES_AND_ATOMICS,
-        //SHADER_STORAGE_IMAGE_MULTISAMPLE,
-        //SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT,
-        //SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT,
-        SHADER_INT64,
-        IMAGE_GATHER_EXTENDED,
-        VARIABLE_POINTERS_STORAGE_BUFFER,
-        VARIABLE_POINTERS,
-        BUFFER_DEVICE_ADDRESS,
-        BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY,
-        BUFFER_DEVICE_ADDRESS_MULTI_DEVICE,
-        SHADER_SAMPLED_IMAGE_ARRAY_NON_UNIFORM_INDEXING,
-        SHADER_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING,
-        DESCRIPTOR_BINDING_SAMPLED_IMAGE_UPDATE_AFTER_BIND,
-        DESCRIPTOR_BINDING_STORAGE_IMAGE_UPDATE_AFTER_BIND,
-        DESCRIPTOR_BINDING_STORAGE_BUFFER_UPDATE_AFTER_BIND,
-        DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING,
-        DESCRIPTOR_BINDING_PARTIALLY_BOUND,
-        RUNTIME_DESCRIPTOR_ARRAY,
-        HOST_QUERY_RESET,
-        DYNAMIC_RENDERING,
-        SYNCHRONIZATION2,
-        TIMELINE_SEMAPHORE,
-        SUBGROUP_SIZE_CONTROL,
-        COMPUTE_FULL_SUBGROUPS,
-        SCALAR_BLOCK_LAYOUT,
-        HOST_IMAGE_COPY,
-        ACCELERATION_STRUCTURE_CAPTURE_REPLAY,
-        VULKAN_MEMORY_MODEL,
-        ROBUST_BUFFER_ACCESS2,
-        ROBUST_IMAGE_ACCESS2,
-        MAX_ENUM
+        using Data = u64;
+    };
+    using MissingRequiredVkFeatureFlags = Flags<MissingRequiredVkFeatureProperties>;
+    struct MissingRequiredVkFeatureFlagBits
+    {
+        static inline constexpr MissingRequiredVkFeatureFlags NONE = {0};
+        static inline constexpr MissingRequiredVkFeatureFlags IMAGE_CUBE_ARRAY = {0x1 << 0};
+        static inline constexpr MissingRequiredVkFeatureFlags INDEPENDENT_BLEND = {0x1 << 1};
+        static inline constexpr MissingRequiredVkFeatureFlags TESSELLATION_SHADER = {0x1 << 2};
+        static inline constexpr MissingRequiredVkFeatureFlags MULTI_DRAW_INDIRECT = {0x1 << 3};
+        static inline constexpr MissingRequiredVkFeatureFlags DEPTH_CLAMP = {0x1 << 4};
+        static inline constexpr MissingRequiredVkFeatureFlags FILL_MODE_NON_SOLID = {0x1 << 5};
+        static inline constexpr MissingRequiredVkFeatureFlags WIDE_LINES = {0x1 << 6};
+        static inline constexpr MissingRequiredVkFeatureFlags SAMPLER_ANISOTROPY = {0x1 << 7};
+        static inline constexpr MissingRequiredVkFeatureFlags FRAGMENT_STORES_AND_ATOMICS = {0x1 << 8};
+        static inline constexpr MissingRequiredVkFeatureFlags SHADER_INT64 = {0x1 << 9};
+        static inline constexpr MissingRequiredVkFeatureFlags IMAGE_GATHER_EXTENDED = {0x1 << 10};
+        static inline constexpr MissingRequiredVkFeatureFlags VARIABLE_POINTERS_STORAGE_BUFFER = {0x1 << 11};
+        static inline constexpr MissingRequiredVkFeatureFlags VARIABLE_POINTERS = {0x1 << 12};
+        static inline constexpr MissingRequiredVkFeatureFlags BUFFER_DEVICE_ADDRESS = {0x1 << 13};
+        static inline constexpr MissingRequiredVkFeatureFlags BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY = {0x1 << 14};
+        static inline constexpr MissingRequiredVkFeatureFlags BUFFER_DEVICE_ADDRESS_MULTI_DEVICE = {0x1 << 15};
+        static inline constexpr MissingRequiredVkFeatureFlags SHADER_SAMPLED_IMAGE_ARRAY_NON_UNIFORM_INDEXING = {0x1 << 16};
+        static inline constexpr MissingRequiredVkFeatureFlags SHADER_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING = {0x1 << 17};
+        static inline constexpr MissingRequiredVkFeatureFlags SHADER_STORAGE_IMAGE_ARRAY_NON_UNIFORM_INDEXING = {0x1 << 18};
+        static inline constexpr MissingRequiredVkFeatureFlags DESCRIPTOR_BINDING_SAMPLED_IMAGE_UPDATE_AFTER_BIND = {0x1 << 19};
+        static inline constexpr MissingRequiredVkFeatureFlags DESCRIPTOR_BINDING_STORAGE_IMAGE_UPDATE_AFTER_BIND = {0x1 << 20};
+        static inline constexpr MissingRequiredVkFeatureFlags DESCRIPTOR_BINDING_STORAGE_BUFFER_UPDATE_AFTER_BIND = {0x1 << 21};
+        static inline constexpr MissingRequiredVkFeatureFlags DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING = {0x1 << 22};
+        static inline constexpr MissingRequiredVkFeatureFlags DESCRIPTOR_BINDING_PARTIALLY_BOUND = {0x1 << 23};
+        static inline constexpr MissingRequiredVkFeatureFlags RUNTIME_DESCRIPTOR_ARRAY = {0x1 << 24};
+        static inline constexpr MissingRequiredVkFeatureFlags HOST_QUERY_RESET = {0x1 << 25};
+        static inline constexpr MissingRequiredVkFeatureFlags DYNAMIC_RENDERING = {0x1 << 26};
+        static inline constexpr MissingRequiredVkFeatureFlags SYNCHRONIZATION2 = {0x1 << 27};
+        static inline constexpr MissingRequiredVkFeatureFlags TIMELINE_SEMAPHORE = {0x1 << 28};
+        static inline constexpr MissingRequiredVkFeatureFlags SUBGROUP_SIZE_CONTROL = {0x1 << 29};
+        static inline constexpr MissingRequiredVkFeatureFlags COMPUTE_FULL_SUBGROUPS = {0x1 << 30};
+        static inline constexpr MissingRequiredVkFeatureFlags SCALAR_BLOCK_LAYOUT = {1ULL << 31};
+        static inline constexpr MissingRequiredVkFeatureFlags HOST_IMAGE_COPY = {1ULL << 32};
+        static inline constexpr MissingRequiredVkFeatureFlags ACCELERATION_STRUCTURE_CAPTURE_REPLAY = {1ULL << 33};
+        static inline constexpr MissingRequiredVkFeatureFlags VULKAN_MEMORY_MODEL = {1ULL << 34};
+        static inline constexpr MissingRequiredVkFeatureFlags ROBUST_BUFFER_ACCESS2 = {1ULL << 35};
+        static inline constexpr MissingRequiredVkFeatureFlags ROBUST_IMAGE_ACCESS2 = {1ULL << 36};
     };
 
-    enum struct MissingReccommendedVkFeatureFlags
+    struct MissingReccommendedVkFeatureProperties
     {
-        //TODO: FILL
-        NONE = 0,
-        SHADER_STORAGE_IMAGE_MULTISAMPLE = 0x1 << 0,
-        SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = 0x1 << 1,
-        SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT = 0x1 << 2,
+        using Data = u32;
+    };
+    using MissingReccommendedVkFeatureFlags = Flags<MissingReccommendedVkFeatureProperties>;
+    struct MissingReccommendedVkFeatureFlagBits
+    {
+        static inline constexpr MissingReccommendedVkFeatureFlags NONE = {0};
+        static inline constexpr MissingReccommendedVkFeatureFlags SHADER_STORAGE_IMAGE_MULTISAMPLE = {0x1 << 0};
+        static inline constexpr MissingReccommendedVkFeatureFlags SHADER_STORAGE_IMAGE_READ_WITHOUT_FORMAT = {0x1 << 1};
+        static inline constexpr MissingReccommendedVkFeatureFlags SHADER_STORAGE_IMAGE_WRITE_WITHOUT_FORMAT = {0x1 << 2};
     };
 
     struct ExplicitFeatureProperties
@@ -332,7 +337,7 @@ namespace daxa
         u32 transfer_queue_count = {};
         ImplicitFeatureFlags implicit_features;
         ExplicitFeatureFlags explicit_features;
-        MissingRequiredVkFeature missing_required_feature;
+        MissingRequiredVkFeatureFlags missing_required_feature;
         MissingReccommendedVkFeatureFlags missing_reccommended_features;
     };
 

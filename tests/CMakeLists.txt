@@ -67,10 +67,12 @@ function(DAXA_CREATE_TEST_C)
     target_include_directories(daxa_test_c_${FOLDER_NAME} PRIVATE "${CMAKE_CURRENT_LIST_DIR}" "${CMAKE_CURRENT_LIST_DIR}/0_common/shared")
     target_compile_definitions(daxa_test_c_${FOLDER_NAME} PRIVATE DAXA_SAMPLE_PATH="${CMAKE_CURRENT_LIST_DIR}/${FOLDER_PATH}")
 
-    add_custom_command(TARGET daxa_test_c_${FOLDER_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:daxa_test_c_${FOLDER_NAME}> $<TARGET_FILE_DIR:daxa_test_c_${FOLDER_NAME}>
-        COMMAND_EXPAND_LISTS
-    )
+    if(WIN32)
+        add_custom_command(TARGET daxa_test_c_${FOLDER_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:daxa_test_c_${FOLDER_NAME}> $<TARGET_FILE_DIR:daxa_test_c_${FOLDER_NAME}>
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
 endfunction()
 
 # find_package(glfw3 CONFIG REQUIRED)
