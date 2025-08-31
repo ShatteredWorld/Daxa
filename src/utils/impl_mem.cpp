@@ -1,9 +1,78 @@
+#include "daxa/types.hpp"
 #if DAXA_BUILT_WITH_UTILS_MEM
 
 #include "../impl_core.hpp"
 
 #include <daxa/utils/mem.hpp>
+#include <daxa/c/utils/mem.h>
 #include <utility>
+
+struct daxa_ImplRingBuffer
+{
+    daxa_ImplRingBuffer(const RingBufferInfo& info)
+        : impl(info) {}
+
+    daxa::RingBuffer impl;
+};
+
+void daxa_create_ring_buffer(daxa_RingBufferInfo const* info, daxa_RingBuffer* out_buffer)
+{
+    if (!info || !out_buffer) return;
+
+    RingBufferInfo buf_info = {};
+    buf_info.device = *rc_cast<daxa::Device*>(&info->device);
+    buf_info.capacity = info->capacity;
+    buf_info.prefer_device_memory = info->prefer_device_memory != 0;
+    buf_info.name = info->name == nullptr ? std::string(info->name) : std::string();
+
+    daxa_ImplRingBuffer* rb = new daxa_ImplRingBuffer(buf_info);
+    *out_buffer = rb;
+}
+
+void daxa_destroy_ring_buffer(daxa_RingBuffer buffer)
+{
+    delete buffer;
+}
+
+auto daxa_ring_buffer_allocate(daxa_RingBuffer buffer, daxa_u32 size, daxa_u32 alignment_requirement, daxa_RingBufferAllocation* out_allocation) -> daxa_Bool8
+{
+    if(!buffer || !out_allocation) return false;
+
+    auto did_alloc = buffer->impl.allocate(size,alignment_requirement);
+    if(!did_alloc.has_value()) return false;
+
+    auto const& alloc = did_alloc.value();
+    *out_allocation = daxa_RingBufferAllocation{
+        .device_address = { alloc.device_address },
+        .host_address = alloc.host_address,
+        .buffer_offset = alloc.buffer_offset,
+        .size = alloc.size,
+        .submit_index = alloc.submit_index
+    };
+}
+
+auto daxa_ring_buffer_get_buffer(daxa_RingBuffer buffer) -> daxa_BufferId
+{
+    return buffer ? buffer->impl.buffer() : daxa_BufferId(0);
+}
+
+void daxa_ring_buffer_get_info(daxa_RingBuffer buffer, daxa_RingBufferInfo* out_info)
+{
+    if (!buffer || !out_info) return;
+    auto const& info = buffer->impl.info();
+    *out_info = daxa_RingBufferInfo{
+        .device = info.device.get(),
+        .capacity = info.capacity,
+        .prefer_device_memory = info.prefer_device_memory,
+        .name = info.name.c_str(),
+    };
+}
+
+void daxa_ring_buffer_reuse_memory_after_pending_submits(daxa_RingBuffer buffer)
+{
+    if (!buffer) return;
+    buffer->impl.reuse_memory_after_pending_submits();
+}
 
 namespace daxa
 {
