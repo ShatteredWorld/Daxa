@@ -11,8 +11,6 @@
 #include "impl_task_graph.hpp"
 #include "impl_task_graph_debug.hpp"
 
-#include <daxa/c/utils/task_graph.h>
-
 namespace daxa
 {
     auto error_message_unassigned_buffer_view(std::string_view task_name, std::string_view attachment_name) -> std::string

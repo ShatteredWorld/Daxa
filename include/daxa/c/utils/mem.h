@@ -17,9 +17,14 @@ typedef struct
     daxa_u32 capacity;
     daxa_Bool8 prefer_device_memory;
     const char* name;
+    size_t name_length;
 } daxa_RingBufferInfo;
 
 typedef daxa_RingBufferInfo daxa_TransferMemoryPoolInfo;
+
+static const daxa_RingBufferInfo DAXA_DEFAULT_RING_BUFFER_INFO = {
+    .capacity = 1 << 25
+};
 
 typedef struct
 {
@@ -37,7 +42,7 @@ DAXA_EXPORT void
 daxa_destroy_ring_buffer(daxa_RingBuffer buffer);
 
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Bool8
-daxa_ring_buffer_allocate(daxa_RingBuffer buffer, daxa_u32 size, daxa_u32 alignment_requirement, daxa_RingBufferAllocation* out_allocation);
+daxa_ring_buffer_allocate(daxa_RingBuffer buffer, daxa_u32 size, daxa_u32 alignment_requirement /*16*/, daxa_RingBufferAllocation* out_allocation);
 
 DAXA_EXPORT DAXA_NO_DISCARD daxa_BufferId
 daxa_ring_buffer_get_buffer(daxa_RingBuffer buffer);
