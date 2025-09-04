@@ -23,6 +23,7 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_GLSLANG AND NOT TARGET glslang::glslang)
         #SYSTEM
     )
     FetchContent_MakeAvailable(glslang)
+    message(STATUS "Including GLSLANG")
 endif()
 
 if (DAXA_ENABLE_TESTS AND NOT TARGET glfw)
