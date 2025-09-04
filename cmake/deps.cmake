@@ -81,7 +81,6 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG AND NOT TARGET slang::slang)
     FetchContent_Declare(
         slang
         URL https://github.com/shader-slang/slang/releases/download/v${Slang_VERSION}/slang-${Slang_VERSION}-${Slang_OS}-x86_64.zip
-        # URL https://github.com/shader-slang/slang/releases/download/v2025.11/slang-2025.11-windows-x86_64.zip
     )
     FetchContent_MakeAvailable(slang)
 
@@ -148,9 +147,17 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG AND NOT TARGET slang::slang)
     mark_as_advanced(Slang_GLSLANG)
 
     add_library(SlangGlslang SHARED IMPORTED)
-    set_property(TARGET SlangGlslang PROPERTY IMPORTED_LOCATION ${Slang_GLSLANG})
+    #set_property(TARGET SlangGlslang PROPERTY IMPORTED_LOCATION ${Slang_GLSLANG})
     if(WIN32)
-        set_property(TARGET SlangGlslang PROPERTY IMPORTED_IMPLIB ${Slang_LIBRARY})
+        set_target_properties(SlangGlslang PROPERTIES 
+            IMPORTED_IMPLIB ${Slang_LIBRARY} 
+            IMPORTED_LOCATION ${Slang_GLSLANG}
+        )
+    else()
+        set_target_properties(SlangGlslang PROPERTIES 
+            IMPORTED_LOCATION ${Slang_GLSLANG} 
+            IMPORTED_NO_SONAME ON
+        )
     endif()
 
     add_library(slang::slang ALIAS Slang)

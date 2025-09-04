@@ -1052,7 +1052,11 @@ namespace daxa
         {
             this->info.custom_preprocessor(virtual_file.contents, virtual_info.name);
         }
-        shader_preprocess(virtual_file.contents, virtual_info.name);
+        
+        if (info.default_language != ShaderLanguage::SLANG)
+        {
+            shader_preprocess(virtual_file.contents, virtual_info.name);
+        }
     }
 
     auto ImplPipelineManager::reload_all() -> PipelineReloadResult
@@ -1736,6 +1740,116 @@ namespace daxa
 #endif
     }
 
+#if DAXA_BUILT_WITH_UTILS_PIPELINE_MANAGER_SLANG
+    struct StringBlob : public ISlangBlob
+    {
+        std::vector<char> data;
+        std::atomic<uint32_t> refCount{1};
+
+        StringBlob(std::string s) : data(s.begin(), s.end()) { }
+
+        SLANG_REF_OBJECT_IUNKNOWN_ALL
+
+        // ISlangBlob
+        virtual void const* SLANG_MCALL getBufferPointer() override { return data.data(); }
+        virtual size_t SLANG_MCALL getBufferSize() override { return data.size(); }
+
+    private:
+        ISlangBlob* getInterface(const Slang::Guid& guid)
+        {
+            if (guid == ISlangBlob::getTypeGuid() || guid == ISlangUnknown::getTypeGuid())
+            {
+                return static_cast<ISlangBlob*>(this);
+            }
+            return nullptr;
+        }
+
+        uint32_t addReference()
+        {
+            return refCount.fetch_add(1, std::memory_order_relaxed) + 1;
+        }
+
+        uint32_t releaseReference()
+        {
+            auto newCount = refCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
+            if (newCount == 0)
+                delete this;
+            return newCount;
+        }
+    };
+
+    class CustomFileSystem : public ISlangFileSystem
+    {
+    public:
+        VirtualFileSet* virtual_files = nullptr;
+
+        SLANG_IUNKNOWN_QUERY_INTERFACE
+        //SLANG_IUNKNOWN_ALL
+
+        virtual SLANG_NO_THROW SlangResult SLANG_MCALL loadFile(char const* path, ISlangBlob** outBlob) override
+        {
+            std::string path_str = path;
+            if(path_str.starts_with(VIRTUAL_FILE_PREFIX))
+            {
+                path_str = path_str.substr(VIRTUAL_FILE_PREFIX.size());
+                auto it = virtual_files->find(path_str);
+                if (it != virtual_files->end())
+                {
+                    auto const& state = it->second;
+
+                    auto blob = Slang::ComPtr<ISlangBlob>{new StringBlob{state.contents}};
+                    *outBlob = blob.detach();
+                    return SLANG_OK;
+                }
+            }
+            else
+            {
+                std::ifstream ifs(path, std::ios::binary);
+                if (ifs)
+                {
+                    std::string contents((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+                    auto blob = Slang::ComPtr<ISlangBlob>{new StringBlob{contents}};
+                    *outBlob = blob.detach();
+                    return SLANG_OK;
+                }
+            }
+            return SLANG_E_NOT_FOUND;
+        }
+
+        virtual SLANG_NO_THROW void* SLANG_MCALL castAs(const SlangUUID& guid)
+        {
+            return getInterface(guid);
+        }
+
+        virtual uint32_t SLANG_MCALL addRef() override
+        {
+            return refCount.fetch_add(1, std::memory_order_relaxed) + 1;
+        }
+
+        virtual uint32_t SLANG_MCALL release() override
+        {
+            auto v = refCount.fetch_sub(1, std::memory_order_acq_rel) - 1;
+            if (v == 0) delete this;
+            return v;
+        }
+
+        static constexpr std::string VIRTUAL_FILE_PREFIX = "_daxa_virtual/";
+        
+    private:
+        std::atomic<uint32_t> refCount{1};
+
+        ISlangUnknown* getInterface(const Slang::Guid& guid)
+        {
+            if (guid == ISlangUnknown::getTypeGuid() || guid == ISlangCastable::getTypeGuid() ||
+                guid == ISlangFileSystem::getTypeGuid())
+            {
+                return static_cast<ISlangFileSystem*>(this);
+            }
+            return nullptr;
+        }
+    };
+#endif
+    // TODO: (MAJOR) Replace deprecated slang usage with new API.
     auto ImplPipelineManager::get_spirv_slang([[maybe_unused]] ShaderCompileInfo2 const & shader_info, [[maybe_unused]] ShaderStage shader_stage, [[maybe_unused]] ShaderCode const & code) -> Result<std::vector<u32>>
     {
 #if DAXA_BUILT_WITH_UTILS_PIPELINE_MANAGER_SLANG
@@ -1744,13 +1858,16 @@ namespace daxa
         {
             auto search_paths_strings = std::vector<std::string>{};
             auto search_paths = std::vector<char const *>{};
-            search_paths_strings.reserve(this->info.root_paths.size());
-            search_paths.reserve(this->info.root_paths.size());
+            search_paths_strings.reserve(this->info.root_paths.size() + 1);
+            search_paths.reserve(this->info.root_paths.size() + 1);
             for (auto const & path : this->info.root_paths)
             {
                 search_paths_strings.push_back(path.string());
                 search_paths.push_back(search_paths_strings.back().c_str());
             }
+
+            search_paths_strings.push_back(CustomFileSystem::VIRTUAL_FILE_PREFIX);
+            search_paths.push_back(search_paths_strings.back().c_str());
 
             auto macros = std::vector<slang::PreprocessorMacroDesc>{};
             macros.reserve(shader_info.defines.size());
@@ -1800,12 +1917,16 @@ namespace daxa
         };
         slangRequest->processCommandLineArguments(cmd_args.data(), static_cast<int>(cmd_args.size()));
 
-        for (auto const & [virtual_path, virtual_file] : virtual_files)
+        /*for (auto const & [virtual_path, virtual_file] : virtual_files)
         {
             int virtualFileIndex = slangRequest->addTranslationUnit(SLANG_SOURCE_LANGUAGE_SLANG, virtual_path.c_str());
             slangRequest->addTranslationUnitSourceString(virtualFileIndex, virtual_path.c_str(), virtual_file.contents.c_str());
             current_observed_hotload_files->insert({virtual_path, std::chrono::file_clock::now()});
-        }
+        }*/
+
+        auto fs = CustomFileSystem{};
+        fs.virtual_files = &virtual_files;
+        slangRequest->setFileSystem(&fs);
 
         auto const filename = "_daxa_file";
 

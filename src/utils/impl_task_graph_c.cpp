@@ -293,8 +293,27 @@ auto daxa_create_task_graph(daxa_TaskGraphInfo const* info, daxa_TaskGraph* out)
     {
         return;
     }
-    daxa::TaskGraphInfo graphInfo;
-    std::memcpy((void*)&graphInfo, info, sizeof(daxa_TaskGraphInfo));
+    daxa::TaskGraphInfo graphInfo = {
+        .device = *rc_cast<daxa::Device*>(&info->device),
+        .swapchain = (info->swapchain.has_value != 0) ? std::optional<daxa::Swapchain>(*rc_cast<daxa::Swapchain*>(&info->swapchain.value)) : std::nullopt,
+        .reorder_tasks = info->reorder_tasks != 0,
+        .alias_transients = info->alias_transient != 0,
+        .use_split_barriers = info->use_split_barriers != 0,
+        .jit_compile_permutations = info->jit_compile_permutations != 0,
+        .permutation_condition_count = info->permutation_condition_count,
+        .enable_command_labels = info->enable_command_labels != 0,
+        .task_graph_label_color = std::bit_cast<std::array<daxa::f32, 4>>(info->task_graph_label_color),
+        .task_batch_label_color = std::bit_cast<std::array<daxa::f32, 4>>(info->task_batch_label_color),
+        .task_label_color = std::bit_cast<std::array<daxa::f32, 4>>(info->task_label_color),
+        .record_debug_information = info->record_debug_information != 0,
+        .staging_memory_pool_size = info->staging_memory_pool_size,
+        .task_memory_pool_size = info->task_memory_pool_size,
+        .additional_transient_image_usage_flags = static_cast<daxa::ImageUsageFlags>(info->additional_transient_image_usage_flags),
+        .pre_task_callback = nullptr,
+        .post_task_callback = nullptr,
+        .default_queue = daxa::QUEUE_MAIN,
+        .name = {}
+    };
     if(info->pre_task_callback != nullptr)
     {
         graphInfo.pre_task_callback = [callback = info->pre_task_callback, user = info->user_data](daxa::TaskInterface ti)
@@ -316,6 +335,12 @@ auto daxa_create_task_graph(daxa_TaskGraphInfo const* info, daxa_TaskGraph* out)
 
     (*out) = new daxa_TaskGraphImpl();
     (*out)->internal = {graphInfo};
+
+    /*daxa_dvc_inc_refcnt(info->device);
+    if(bool(info->swapchain.has_value))
+    {
+        daxa_swp_inc_refcnt(info->swapchain.value);
+    }*/
 }
 
 auto daxa_destroy_task_graph(daxa_TaskGraph graph) -> void

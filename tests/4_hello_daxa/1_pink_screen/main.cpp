@@ -115,7 +115,7 @@ auto main() -> int
         // Not all devices are compatible with daxa!
         // Daxa has a set of hard required features that may miss on a gpu.
         // To be sure to pick a supported device, check the missing_required_feature enum:
-        if (properties.missing_required_feature != daxa::MissingRequiredVkFeature::NONE)
+        if (properties.missing_required_feature != daxa::MissingRequiredVkFeatureFlagBits::NONE)
         {
             continue;
         }

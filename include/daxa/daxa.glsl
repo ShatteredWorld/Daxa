@@ -5,6 +5,16 @@
 // #define DAXA_RAY_TRACING
 // #define DAXA_BUFFER_PTR_COMPAT
 
+#if !defined(DAXA_GPU_TABLE_SET_BINDING)
+#define DAXA_GPU_TABLE_SET_BINDING 0
+#define DAXA_STORAGE_BUFFER_BINDING 0
+#define DAXA_STORAGE_IMAGE_BINDING 1
+#define DAXA_SAMPLED_IMAGE_BINDING 2
+#define DAXA_SAMPLER_BINDING 3
+#define DAXA_BUFFER_DEVICE_ADDRESS_BUFFER_BINDING 4
+#define DAXA_ACCELERATION_STRUCTURE_BINDING 5
+#endif
+
 #extension GL_EXT_nonuniform_qualifier : enable
 #extension GL_EXT_buffer_reference : enable
 #extension GL_EXT_buffer_reference2 : enable

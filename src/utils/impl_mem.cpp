@@ -1,4 +1,3 @@
-#include "daxa/types.hpp"
 #if DAXA_BUILT_WITH_UTILS_MEM
 
 #include "../impl_core.hpp"
@@ -25,6 +24,7 @@ void daxa_create_ring_buffer(daxa_RingBufferInfo const* info, daxa_RingBuffer* o
     buf_info.name = info->name == nullptr ? std::string(info->name,info->name_length) : std::string();
 
     (*out_buffer) = new daxa_ImplRingBuffer(buf_info);
+    //daxa_dvc_inc_refcnt(info->device);
 }
 
 void daxa_destroy_ring_buffer(daxa_RingBuffer buffer)

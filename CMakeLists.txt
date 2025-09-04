@@ -55,6 +55,7 @@ add_library(daxa
     "src/utils/impl_imgui.cpp"
     "src/utils/impl_fsr3.cpp"
     "src/utils/impl_mem.cpp"
+    "src/utils/impl_pipeline_manager_c.cpp"
     "src/utils/impl_pipeline_manager.cpp"
 )
 
@@ -212,3 +213,15 @@ install(TARGETS daxa
 install(DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+
+if(DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG)
+    get_target_property(SLANG_LIB slang::slang LOCATION)
+    if(SLANG_LIB)
+        install(FILES ${SLANG_LIB} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    endif()
+
+    get_target_property(SLANG_GLSLANG_LIB slang::glslang LOCATION)
+    if(SLANG_GLSLANG_LIB)
+        install(FILES ${SLANG_GLSLANG_LIB} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    endif()
+endif()

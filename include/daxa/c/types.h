@@ -169,6 +169,13 @@ typedef enum
         size_t size;        \
     }
 
+#define daxa_Span(T)  \
+    struct              \
+    {                   \
+        T * data;       \
+        size_t size;    \
+    }
+
 #define _DAXA_VARIANT_INDEX_TYPE uint8_t
 
 /// ABI STABLE VARIANT TYPE.
@@ -258,5 +265,10 @@ typedef struct
     VkStridedDeviceAddressRegionKHR hit_region;
     VkStridedDeviceAddressRegionKHR callable_region;
 } daxa_RayTracingShaderBindingTable;
+
+typedef struct
+{
+    char padding;
+} daxa_Monostate;
 
 #endif // #ifndef __DAXA_TYPES_H__
