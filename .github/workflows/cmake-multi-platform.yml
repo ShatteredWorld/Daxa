@@ -48,17 +48,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    #- name: Cache CMake build
-    #  uses: actions/cache@v4
-    #  with:
-    #    path: |
-    #      ${{ github.workspace }}/build
-    #      ~/.ccache
-    #    key: ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
-    #    restore-keys: |
-    #      ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-
-    #      ${{ runner.os }}-${{ matrix.c_compiler }}-
-    #      ${{ runner.os }}-
+    - name: Cache CMake build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ github.workspace }}/build
+          ~/.ccache
+        key: ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-
+          ${{ runner.os }}-${{ matrix.c_compiler }}-
+          ${{ runner.os }}-
 
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.1
@@ -100,8 +100,8 @@ jobs:
         -DDAXA_ENABLE_UTILS_FSR3=false
         -DDAXA_ENABLE_UTILS_IMGUI=false
         -DDAXA_ENABLE_UTILS_MEM=true
-        -DDAXA_ENABLE_UTILS_PIPELINE_MANAGER_GLSLANG=true
-        -DDAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG=true
+        -DDAXA_ENABLE_UTILS_PIPELINE_MANAGER_GLSLANG=false
+        -DDAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG=false
         -DDAXA_ENABLE_UTILS_PIPELINE_MANAGER_SPIRV_VALIDATION=false
         -DDAXA_ENABLE_UTILS_TASK_GRAPH=true
         -DDAXA_ENABLE_TESTS=false
