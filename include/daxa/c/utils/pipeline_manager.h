@@ -9,6 +9,10 @@
 
 typedef struct daxa_PipelineManagerImpl* daxa_PipelineManager;
 
+typedef daxa_SharedPtr(daxa_RayTracingPipeline) daxa_RayTracingPipelineSharedPtr;
+typedef daxa_SharedPtr(daxa_ComputePipeline) daxa_ComputePipelineSharedPtr;
+typedef daxa_SharedPtr(daxa_RasterPipeline) daxa_RasterPipelineSharedPtr;
+
 typedef struct
 {
     const char* path;
@@ -150,17 +154,17 @@ DAXA_EXPORT void daxa_create_pipeline_manager(daxa_PipelineManagerInfo2 const* i
 DAXA_EXPORT void daxa_destroy_pipeline_manager(daxa_PipelineManager pipeline_manager);
 
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Bool8
-daxa_pipeline_manager_add_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipelineCompileInfo2 const* info, daxa_RayTracingPipeline* out);
+daxa_pipeline_manager_add_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipelineCompileInfo2 const* info, daxa_RayTracingPipelineSharedPtr* out);
 
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Bool8
-daxa_pipeline_manager_add_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipelineCompileInfo2 const* info, daxa_ComputePipeline* out);
+daxa_pipeline_manager_add_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipelineCompileInfo2 const* info, daxa_ComputePipelineSharedPtr* out);
 
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Bool8
-daxa_pipeline_manager_add_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipelineCompileInfo2 const* info, daxa_RasterPipeline* out);
+daxa_pipeline_manager_add_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipelineCompileInfo2 const* info, daxa_RasterPipelineSharedPtr* out);
 
-DAXA_EXPORT void daxa_pipeline_manager_remove_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipeline pipeline);
-DAXA_EXPORT void daxa_pipeline_manager_remove_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipeline pipeline);
-DAXA_EXPORT void daxa_pipeline_manager_remove_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipeline pipeline);
+DAXA_EXPORT void daxa_pipeline_manager_remove_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipelineSharedPtr* pipeline);
+DAXA_EXPORT void daxa_pipeline_manager_remove_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipelineSharedPtr* pipeline);
+DAXA_EXPORT void daxa_pipeline_manager_remove_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipelineSharedPtr* pipeline);
 
 DAXA_EXPORT void daxa_pipeline_manager_get_latest_error(daxa_PipelineManager pipeline_manager, const char** out);
 

@@ -176,6 +176,13 @@ typedef enum
         size_t size;    \
     }
 
+#define daxa_SharedPtr(T)\
+    struct              \
+    {                   \
+        T * data;       \
+        void* refCount;    \
+    }
+
 #define _DAXA_VARIANT_INDEX_TYPE uint8_t
 
 /// ABI STABLE VARIANT TYPE.

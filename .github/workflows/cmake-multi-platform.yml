@@ -48,22 +48,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Cache CMake build
-      uses: actions/cache@v4
-      with:
-        path: |
-          ${{ github.workspace }}/build
-          ~/.ccache
-        key: ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-
-          ${{ runner.os }}-${{ matrix.c_compiler }}-
-          ${{ runner.os }}-
+    #- name: Cache CMake build
+    #  uses: actions/cache@v4
+    #  with:
+    #    path: |
+    #      ${{ github.workspace }}/build
+    #      ~/.ccache
+    #    key: ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
+    #    restore-keys: |
+    #      ${{ runner.os }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-
+    #      ${{ runner.os }}-${{ matrix.c_compiler }}-
+    #      ${{ runner.os }}-
 
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.1
       with:
-        vulkan-query-version: 1.4.304.1
+        vulkan-query-version: 1.3.296.0
         vulkan-components: Vulkan-Headers, Vulkan-Loader
         vulkan-use-cache: true
 

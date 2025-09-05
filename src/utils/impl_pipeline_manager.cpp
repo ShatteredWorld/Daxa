@@ -1381,13 +1381,13 @@ namespace daxa
                     return Result<std::vector<u32>>(ret.message());
                 }
                 // This is a hack. Instead of providing the file as source code, we provide the full path.
-                code = {.string = std::string("#include \"") + ret.value().string() + "\"\n"};
-                // auto code_ret = load_shader_source_from_file(ret.value());
-                // if (code_ret.is_err())
-                // {
-                //     return Result<std::vector<u32>>(code_ret.message());
-                // }
-                // code = code_ret.value();
+               // code = {.string = std::string("#include \"") + ret.value().string() + "\"\n"};
+                auto code_ret = load_shader_source_from_file(ret.value());
+                if (code_ret.is_err())
+                {
+                    return Result<std::vector<u32>>(code_ret.message());
+                }
+                code = code_ret.value();
             }
             else
             {
@@ -1917,12 +1917,12 @@ namespace daxa
         };
         slangRequest->processCommandLineArguments(cmd_args.data(), static_cast<int>(cmd_args.size()));
 
-        /*for (auto const & [virtual_path, virtual_file] : virtual_files)
+        for (auto const & [virtual_path, virtual_file] : virtual_files)
         {
-            int virtualFileIndex = slangRequest->addTranslationUnit(SLANG_SOURCE_LANGUAGE_SLANG, virtual_path.c_str());
-            slangRequest->addTranslationUnitSourceString(virtualFileIndex, virtual_path.c_str(), virtual_file.contents.c_str());
+            //int virtualFileIndex = slangRequest->addTranslationUnit(SLANG_SOURCE_LANGUAGE_SLANG, virtual_path.c_str());
+            //slangRequest->addTranslationUnitSourceString(virtualFileIndex, virtual_path.c_str(), virtual_file.contents.c_str());
             current_observed_hotload_files->insert({virtual_path, std::chrono::file_clock::now()});
-        }*/
+        }
 
         auto fs = CustomFileSystem{};
         fs.virtual_files = &virtual_files;
@@ -1943,8 +1943,8 @@ namespace daxa
         auto const dependency_n = slangRequest->getDependencyFileCount();
         for (int32_t dependency_i = 0; dependency_i < dependency_n; ++dependency_i)
         {
-            auto const * const dep_path = slangRequest->getDependencyFilePath(dependency_i);
-            if (std::strcmp(dep_path, "_daxa_slang_main") != 0)
+            auto dep_path = std::string(slangRequest->getDependencyFilePath(dependency_i));
+            if (dep_path != "_daxa_slang_main" && !std::ranges::any_of(dep_path, [](char c) { return std::isdigit(c); }))
             {
                 current_observed_hotload_files->insert({dep_path, std::chrono::file_clock::now()});
             }

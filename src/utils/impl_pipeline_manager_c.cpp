@@ -93,7 +93,7 @@ auto daxa_destroy_pipeline_manager(daxa_PipelineManager pipeline_manager) -> voi
     delete pipeline_manager;
 }
 
-auto daxa_pipeline_manager_add_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, const daxa_RayTracingPipelineCompileInfo2 *info, daxa_RayTracingPipeline *out) -> daxa_Bool8
+auto daxa_pipeline_manager_add_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, const daxa_RayTracingPipelineCompileInfo2 *info, daxa_RayTracingPipelineSharedPtr *out) -> daxa_Bool8
 {
     if(pipeline_manager == nullptr || info == nullptr || out == nullptr)
     {
@@ -164,12 +164,13 @@ auto daxa_pipeline_manager_add_ray_tracing_pipeline(daxa_PipelineManager pipelin
     }
     else
     {
-        (*out) = (result.value())->get();
+        //(*out) = (result.value())->get();
+        (*out) = *r_cast<daxa_RayTracingPipelineSharedPtr*>(&result.value());
         return 1;
     }
 }
 
-auto daxa_pipeline_manager_add_compute_pipeline(daxa_PipelineManager pipeline_manager, const daxa_ComputePipelineCompileInfo2 *info, daxa_ComputePipeline *out) -> daxa_Bool8
+auto daxa_pipeline_manager_add_compute_pipeline(daxa_PipelineManager pipeline_manager, const daxa_ComputePipelineCompileInfo2 *info, daxa_ComputePipelineSharedPtr *out) -> daxa_Bool8
 {
     if(pipeline_manager == nullptr || info == nullptr || out == nullptr)
     {
@@ -213,12 +214,13 @@ auto daxa_pipeline_manager_add_compute_pipeline(daxa_PipelineManager pipeline_ma
     }
     else
     {
-        (*out) = (result.value())->get();
+        //(*out) = (result.value())->get();
+        (*out) = *r_cast<daxa_ComputePipelineSharedPtr*>(&result.value());
         return 1;
     }
 }
 
-auto daxa_pipeline_manager_add_raster_pipeline(daxa_PipelineManager pipeline_manager, const daxa_RasterPipelineCompileInfo2 *info, daxa_RasterPipeline *out) -> daxa_Bool8
+auto daxa_pipeline_manager_add_raster_pipeline(daxa_PipelineManager pipeline_manager, const daxa_RasterPipelineCompileInfo2 *info, daxa_RasterPipelineSharedPtr *out) -> daxa_Bool8
 {
     if(pipeline_manager == nullptr || info == nullptr || out == nullptr)
     {
@@ -255,42 +257,40 @@ auto daxa_pipeline_manager_add_raster_pipeline(daxa_PipelineManager pipeline_man
     }
     else
     {
-        (*out) = (result.value())->get();
+        //(*out) = (result.value())->get();
+        (*out) = *r_cast<daxa_RasterPipelineSharedPtr*>(&result.value());
         return 1;
     }
 }
 
-auto daxa_pipeline_manager_remove_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipeline pipeline) -> void
+auto daxa_pipeline_manager_remove_ray_tracing_pipeline(daxa_PipelineManager pipeline_manager, daxa_RayTracingPipelineSharedPtr* pipeline) -> void
 {
     if(pipeline_manager == nullptr || pipeline == nullptr)
     {
         return;
     }
     
-    std::shared_ptr<daxa::RayTracingPipeline> rc_pipeline{rc_cast<daxa::RayTracingPipeline*>(&pipeline)};
-    pipeline_manager->impl.remove_ray_tracing_pipeline(rc_pipeline);
+    pipeline_manager->impl.remove_ray_tracing_pipeline(*r_cast<std::shared_ptr<daxa::RayTracingPipeline>*>(pipeline));
 }
 
-auto daxa_pipeline_manager_remove_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipeline pipeline) -> void
+auto daxa_pipeline_manager_remove_compute_pipeline(daxa_PipelineManager pipeline_manager, daxa_ComputePipelineSharedPtr* pipeline) -> void
 {
     if(pipeline_manager == nullptr || pipeline == nullptr)
     {
         return;
     }
     
-    std::shared_ptr<daxa::ComputePipeline> rc_pipeline{rc_cast<daxa::ComputePipeline*>(&pipeline)};
-    pipeline_manager->impl.remove_compute_pipeline(rc_pipeline);
+    pipeline_manager->impl.remove_compute_pipeline(*r_cast<std::shared_ptr<daxa::ComputePipeline>*>(pipeline));
 }
 
-auto daxa_pipeline_manager_remove_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipeline pipeline) -> void
+auto daxa_pipeline_manager_remove_raster_pipeline(daxa_PipelineManager pipeline_manager, daxa_RasterPipelineSharedPtr* pipeline) -> void
 {
     if(pipeline_manager == nullptr || pipeline == nullptr)
     {
         return;
     }
     
-    std::shared_ptr<daxa::RasterPipeline> rc_pipeline{rc_cast<daxa::RasterPipeline*>(&pipeline)};
-    pipeline_manager->impl.remove_raster_pipeline(rc_pipeline);
+    pipeline_manager->impl.remove_raster_pipeline(*r_cast<std::shared_ptr<daxa::RasterPipeline>*>(pipeline));
 }
 
 auto daxa_pipeline_manager_get_latest_error(daxa_PipelineManager pipeline_manager, const char **out) -> void
