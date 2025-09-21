@@ -17,7 +17,22 @@ auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
 #elif defined(__linux__)
     return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(glfw_window_ptr));
 #endif*/
-    return {
+    daxa::NativeWindowHandle handle{};
+    handle.kind = daxa::NativeWindowKind::FUNCTIONS;
+    handle.userData = glfw_window_ptr;
+    handle.get_window_surface = [](void * instance, void * userData, void ** out_surface) -> int
+    {
+        auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        return (int)glfwCreateWindowSurface((VkInstance)instance, glfw_window, NULL, (VkSurfaceKHR *)out_surface);
+    };
+    handle.get_window_extent = [](void * userData) -> daxa::Extent2D
+    {
+        auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        int width, height;
+        glfwGetWindowSize(glfw_window, &width, &height);
+        return daxa::Extent2D{static_cast<daxa::u32>(width), static_cast<daxa::u32>(height)};
+    };
+    return handle/* daxa::NativeWindowHandle{
         .kind = daxa::NativeWindowKind::FUNCTIONS,
         .userData = glfw_window_ptr,
         .get_window_surface = [](void* instance, void * userData, void** out_surface) -> int
@@ -32,7 +47,7 @@ auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
             glfwGetWindowSize(glfw_window, &width, &height);
             return {static_cast<daxa::u32>(width), static_cast<daxa::u32>(height)};
         }
-    };
+    }*/;
 }
 
 auto get_native_platform(GLFWwindow * /*unused*/) -> daxa::NativeWindowPlatform

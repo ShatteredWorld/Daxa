@@ -1609,7 +1609,7 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
     _DAXA_RETURN_IF_ERROR(result, result)
 
     auto const max_device_supported_images_in_set = std::min(self->properties.limits.max_descriptor_set_sampled_images, self->properties.limits.max_descriptor_set_storage_images);
-    if (self->info.max_allowed_buffers > max_device_supported_images_in_set || self->info.max_allowed_buffers == 0)
+    if (self->info.max_allowed_images > max_device_supported_images_in_set || self->info.max_allowed_images == 0)
     {
         result = DAXA_RESULT_DEVICE_DOES_NOT_SUPPORT_IMAGE_COUNT;
     }

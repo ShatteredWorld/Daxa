@@ -10,7 +10,6 @@
             "name": "defaults",
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
-            "generator": "Ninja Multi-Config",
             "cacheVariables": {
                 "CMAKE_MODULE_PATH": "${sourceDir}/cmake/modules",
                 "DAXA_ENABLE_UTILS_FSR3": false,
@@ -44,6 +43,7 @@
         {
             "name": "defaults-linux",
             "hidden": true,
+            "generator": "Ninja Multi-Config",
             "inherits": [
                 "defaults"
             ],

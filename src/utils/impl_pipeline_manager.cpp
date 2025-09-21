@@ -1833,7 +1833,7 @@ namespace daxa
             return v;
         }
 
-        static constexpr std::string VIRTUAL_FILE_PREFIX = "_daxa_virtual/";
+        inline static std::string VIRTUAL_FILE_PREFIX = "_daxa_virtual/";
         
     private:
         std::atomic<uint32_t> refCount{1};

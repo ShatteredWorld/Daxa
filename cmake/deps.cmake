@@ -23,7 +23,6 @@ if (DAXA_ENABLE_UTILS_PIPELINE_MANAGER_GLSLANG AND NOT TARGET glslang::glslang)
         #SYSTEM
     )
     FetchContent_MakeAvailable(glslang)
-    message(STATUS "Including GLSLANG")
 endif()
 
 if (DAXA_ENABLE_TESTS AND NOT TARGET glfw)
@@ -43,10 +42,14 @@ if (DAXA_ENABLE_TESTS AND NOT TARGET glfw)
 endif()
 
 if (DAXA_ENABLE_UTILS_IMGUI AND NOT TARGET imgui::imgui)
+    if(NOT IMGUI_TAG)
+        set(IMGUI_TAG fdc084f532189fda8474079f79e74fa5e3541c9f)
+    endif()
+
     FetchContent_Declare(
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
-        GIT_TAG        fdc084f532189fda8474079f79e74fa5e3541c9f
+        GIT_TAG        ${IMGUI_TAG}
     )
 
     FetchContent_GetProperties(imgui)

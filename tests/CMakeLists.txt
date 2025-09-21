@@ -191,7 +191,7 @@ DAXA_CREATE_TEST(
 
 DAXA_CREATE_TEST(
     FOLDER 4_hello_daxa 1_pink_screen
-    LIBS glfw
+    LIBS glfw Vulkan::Vulkan
 )
 
 DAXA_CREATE_TEST(
