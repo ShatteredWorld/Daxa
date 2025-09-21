@@ -212,13 +212,12 @@ auto main() -> int
         recorder.pipeline_barrier_image_transition({
             .dst_access = daxa::AccessConsts::TRANSFER_WRITE,
             .src_layout = daxa::ImageLayout::UNDEFINED,
-            .dst_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
+            .dst_layout = daxa::ImageLayout::GENERAL,
             .image_slice = swapchain_image_full_slice,
             .image_id = swapchain_image,
         });
 
         recorder.clear_image({
-            .dst_image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
             .clear_value = std::array<daxa::f32, 4>{1.0f, 0.0f, 1.0f, 1.0f},
             .dst_image = swapchain_image,
             .dst_slice = swapchain_image_full_slice,
@@ -226,7 +225,7 @@ auto main() -> int
 
         recorder.pipeline_barrier_image_transition({
             .src_access = daxa::AccessConsts::TRANSFER_WRITE,
-            .src_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
+            .src_layout = daxa::ImageLayout::GENERAL,
             .dst_layout = daxa::ImageLayout::PRESENT_SRC,
             .image_slice = swapchain_image_full_slice,
             .image_id = swapchain_image,
