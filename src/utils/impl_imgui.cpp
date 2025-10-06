@@ -252,6 +252,249 @@ namespace daxa
             push.vbuffer_ptr = this->info.device.device_address(vbuffer).value();
             push.ibuffer_ptr = this->info.device.device_address(ibuffer).value();
 
+#if IMGUI_VERSION_NUM >= 19200
+            for(ImTextureData* tex : *draw_data->Textures)
+            {
+                if(tex->Status == ImTextureStatus_OK) continue;
+
+                /*struct ImGuiImageContext
+                {
+                    ImageViewId image_view_id;
+                    SamplerId sampler_id;
+                };
+                */
+                //image_sampler_pairs.push_back(context);
+                //return std::bit_cast<ImTextureID>(impl.image_sampler_pairs.size() - 1);
+
+                if (tex->Status == ImTextureStatus_WantCreate)
+                {
+                    IM_ASSERT(tex->TexID == ImTextureID_Invalid && tex->BackendUserData == nullptr);
+                    IM_ASSERT(tex->Format == ImTextureFormat_RGBA32);
+
+                    auto image = font_sheet = this->info.device.create_image({
+                        .size = {static_cast<u32>(tex->Width), static_cast<u32>(tex->Height), 1},
+                        .usage = ImageUsageFlagBits::TRANSFER_DST | ImageUsageFlagBits::SHADER_SAMPLED,
+                    });
+
+                    // Create the Image View:
+                    /*{
+                        VkImageViewCreateInfo info = {};
+                        info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+                        info.image = backend_tex->Image;
+                        info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+                        info.format = VK_FORMAT_R8G8B8A8_UNORM;
+                        info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        info.subresourceRange.levelCount = 1;
+                        info.subresourceRange.layerCount = 1;
+                        err = vkCreateImageView(v->Device, &info, v->Allocator, &backend_tex->ImageView);
+                        check_vk_result(err);
+                    }*/
+
+                    // Store identifiers
+                    image_sampler_pairs.push_back({
+                        .image_view_id = image.default_view(),
+                        .sampler_id = font_sampler,
+                    });
+                    tex->SetTexID(std::bit_cast<ImTextureID>(image_sampler_pairs.size() - 1));
+                }
+
+                if (tex->Status == ImTextureStatus_WantCreate || tex->Status == ImTextureStatus_WantUpdates)
+                {
+                    auto const image_context = this->image_sampler_pairs.at(std::bit_cast<usize>(tex->GetTexID()));
+                    auto image_id = info.device.image_view_info(image_context.image_view_id).value().image;
+
+                    // Update full texture or selected blocks. We only ever write to textures regions which have never been used before!
+                    // This backend choose to use tex->UpdateRect but you can use tex->Updates[] to upload individual regions.
+                    // We could use the smaller rect on _WantCreate but using the full rect allows us to clear the texture.
+                    const int upload_x = (tex->Status == ImTextureStatus_WantCreate) ? 0 : tex->UpdateRect.x;
+                    const int upload_y = (tex->Status == ImTextureStatus_WantCreate) ? 0 : tex->UpdateRect.y;
+                    const int upload_w = (tex->Status == ImTextureStatus_WantCreate) ? tex->Width : tex->UpdateRect.w;
+                    const int upload_h = (tex->Status == ImTextureStatus_WantCreate) ? tex->Height : tex->UpdateRect.h;
+
+                    usize const upload_size = static_cast<usize>(upload_w) * static_cast<usize>(upload_h) * 4 * sizeof(u8);
+                    auto texture_staging_buffer = this->info.device.create_buffer({
+                        .size = static_cast<u32>(upload_size),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    });
+
+                    /*
+                    {
+                        VkBufferCreateInfo buffer_info = {};
+                        buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+                        buffer_info.size = upload_size;
+                        buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+                        buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+                        err = vkCreateBuffer(v->Device, &buffer_info, v->Allocator, &upload_buffer);
+                        check_vk_result(err);
+                        VkMemoryRequirements req;
+                        vkGetBufferMemoryRequirements(v->Device, upload_buffer, &req);
+                        bd->BufferMemoryAlignment = (bd->BufferMemoryAlignment > req.alignment) ? bd->BufferMemoryAlignment : req.alignment;
+                        VkMemoryAllocateInfo alloc_info = {};
+                        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+                        alloc_info.allocationSize = IM_MAX(v->MinAllocationSize, req.size);
+                        alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
+                        err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &upload_buffer_memory);
+                        check_vk_result(err);
+                        err = vkBindBufferMemory(v->Device, upload_buffer, upload_buffer_memory, 0);
+                        check_vk_result(err);
+                    }
+
+                    // Upload to Buffer:
+                    {
+                        char* map = nullptr;
+                        err = vkMapMemory(v->Device, upload_buffer_memory, 0, upload_size, 0, (void**)(&map));
+                        check_vk_result(err);
+                        for (int y = 0; y < upload_h; y++)
+                            memcpy(map + upload_pitch * y, tex->GetPixelsAt(upload_x, upload_y + y), (size_t)upload_pitch);
+                        VkMappedMemoryRange range[1] = {};
+                        range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+                        range[0].memory = upload_buffer_memory;
+                        range[0].size = upload_size;
+                        err = vkFlushMappedMemoryRanges(v->Device, 1, range);
+                        check_vk_result(err);
+                        vkUnmapMemory(v->Device, upload_buffer_memory);
+                    }
+
+                    // Start command buffer
+                    {
+                        err = vkResetCommandPool(v->Device, bd->TexCommandPool, 0);
+                        check_vk_result(err);
+                        VkCommandBufferBeginInfo begin_info = {};
+                        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                        begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+                        err = vkBeginCommandBuffer(bd->TexCommandBuffer, &begin_info);
+                        check_vk_result(err);
+                    }
+
+                    // Copy to Image:
+                    {
+                        VkBufferMemoryBarrier upload_barrier[1] = {};
+                        upload_barrier[0].sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                        upload_barrier[0].srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+                        upload_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+                        upload_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        upload_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        upload_barrier[0].buffer = upload_buffer;
+                        upload_barrier[0].offset = 0;
+                        upload_barrier[0].size = upload_size;
+
+                        VkImageMemoryBarrier copy_barrier[1] = {};
+                        copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                        copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                        copy_barrier[0].oldLayout = (tex->Status == ImTextureStatus_WantCreate) ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                        copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                        copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        copy_barrier[0].image = backend_tex->Image;
+                        copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        copy_barrier[0].subresourceRange.levelCount = 1;
+                        copy_barrier[0].subresourceRange.layerCount = 1;
+                        vkCmdPipelineBarrier(bd->TexCommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 1, upload_barrier, 1, copy_barrier);
+
+                        VkBufferImageCopy region = {};
+                        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        region.imageSubresource.layerCount = 1;
+                        region.imageExtent.width = upload_w;
+                        region.imageExtent.height = upload_h;
+                        region.imageExtent.depth = 1;
+                        region.imageOffset.x = upload_x;
+                        region.imageOffset.y = upload_y;
+                        vkCmdCopyBufferToImage(bd->TexCommandBuffer, upload_buffer, backend_tex->Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+                        VkImageMemoryBarrier use_barrier[1] = {};
+                        use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                        use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+                        use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+                        use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                        use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                        use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        use_barrier[0].image = backend_tex->Image;
+                        use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        use_barrier[0].subresourceRange.levelCount = 1;
+                        use_barrier[0].subresourceRange.layerCount = 1;
+                        vkCmdPipelineBarrier(bd->TexCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, use_barrier);
+                    }
+
+                    // End command buffer
+                    {
+                        VkSubmitInfo end_info = {};
+                        end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                        end_info.commandBufferCount = 1;
+                        end_info.pCommandBuffers = &bd->TexCommandBuffer;
+                        err = vkEndCommandBuffer(bd->TexCommandBuffer);
+                        check_vk_result(err);
+                        err = vkQueueSubmit(v->Queue, 1, &end_info, VK_NULL_HANDLE);
+                        check_vk_result(err);
+                    }
+
+                    err = vkQueueWaitIdle(v->Queue); // FIXME-OPT: Suboptimal!
+                    check_vk_result(err);
+                    vkDestroyBuffer(v->Device, upload_buffer, v->Allocator);
+                    vkFreeMemory(v->Device, upload_buffer_memory, v->Allocator);*/
+
+                    u8* staging_buffer_data = this->info.device.buffer_host_address_as<u8>(texture_staging_buffer).value();
+                    for (int y = 0; y < upload_h; y++)
+                    {
+                        std::memcpy(staging_buffer_data + sizeof(u8) * y, tex->GetPixelsAt(upload_x, upload_y + y), (size_t)sizeof(u8));
+                    }
+                    std::memcpy(staging_buffer_data, tex->GetPixels(), upload_size);
+                    auto recorder = this->info.device.create_command_recorder({.name = "dear ImGui Tex Upload"});
+                    recorder.pipeline_barrier_image_transition({
+                        .src_access = daxa::AccessConsts::HOST_WRITE,
+                        .dst_access = daxa::AccessConsts::TRANSFER_READ_WRITE,
+                        .dst_layout = daxa::ImageLayout::GENERAL,
+                        .image_slice = {
+                            .base_mip_level = 0,
+                            .level_count = 1,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_id = image_id,
+                    });
+                    recorder.copy_buffer_to_image({
+                        .buffer = texture_staging_buffer,
+                        .image = image_id,
+                        .image_slice = {
+                            .mip_level = 0,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_offset = {upload_x, upload_y, 0},
+                        .image_extent = {static_cast<u32>(upload_w), static_cast<u32>(upload_h), 1},
+                    });
+                    recorder.pipeline_barrier_image_transition({
+                        .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                        .dst_access = daxa::AccessConsts::FRAGMENT_SHADER_READ,
+                        .src_layout = daxa::ImageLayout::GENERAL,
+                        .dst_layout = daxa::ImageLayout::GENERAL,
+                        .image_slice = {
+                            .base_mip_level = 0,
+                            .level_count = 1,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_id = image_id,
+                    });
+                    auto executable_commands = recorder.complete_current_commands();
+                    this->info.device.submit_commands({
+                        .command_lists = std::array{executable_commands},
+                    });
+                    this->info.device.destroy_buffer(texture_staging_buffer);
+
+                    tex->SetStatus(ImTextureStatus_OK);
+                }
+
+                if (tex->Status == ImTextureStatus_WantDestroy && tex->UnusedFrames >= (int)3)
+                {
+                    auto const image_context = this->image_sampler_pairs.at(std::bit_cast<usize>(tex->GetTexID()));
+                    auto image_id = info.device.image_view_info(image_context.image_view_id).value().image;
+                    info.device.destroy_image(image_id);
+                    this->image_sampler_pairs.erase(this->image_sampler_pairs.begin() + std::bit_cast<usize>(tex->GetTexID()));
+                }
+            }
+#endif
+
             for (i32 n = 0; n < draw_data->CmdListsCount; n++)
             {
                 ImDrawList const * draws = draw_data->CmdLists[n];
@@ -305,7 +548,9 @@ namespace daxa
 
             recorder = std::move(render_recorder).end_renderpass();
         }
+#if IMGUI_VERSION_NUM < 19200
         this->image_sampler_pairs.resize(1);
+#endif
     }
 
     ImplImGuiRenderer::ImplImGuiRenderer(ImGuiRendererInfo a_info)
@@ -434,6 +679,20 @@ namespace daxa
         this->info.device.destroy_buffer(this->ibuffer);
         this->info.device.destroy_image(this->font_sheet);
         this->info.device.destroy_sampler(this->font_sampler);
+
+#if IMGUI_VERSION_NUM >= 19200
+        for (auto const &[image_view_id, sampler_id] : this->image_sampler_pairs)
+        {
+            if(info.device.is_image_view_id_valid(image_view_id))
+            {
+                this->info.device.destroy_image(this->info.device.image_view_info(image_view_id).value().image);
+            }
+            if(sampler_id != this->font_sampler && info.device.is_sampler_id_valid(sampler_id))
+            {
+                this->info.device.destroy_sampler(sampler_id);
+            }
+        }
+#endif
     }
 
     void ImplImGuiRenderer::zero_ref_callback(ImplHandle const * handle)
