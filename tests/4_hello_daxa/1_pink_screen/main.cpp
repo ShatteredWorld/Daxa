@@ -11,53 +11,25 @@
 
 auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
 {
-    /*
-#if defined(_WIN32)
-    return glfwGetWin32Window(glfw_window_ptr);
-#elif defined(__linux__)
-    return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(glfw_window_ptr));
-#endif*/
     daxa::NativeWindowHandle handle{};
-    handle.kind = daxa::NativeWindowKind::FUNCTIONS;
     handle.userData = glfw_window_ptr;
-    handle.get_window_surface = [](void * instance, void * userData, void ** out_surface) -> int
+    handle.get_window_surface = [](void * userData, void * instance, void ** out_surface) -> int
     {
-        auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        auto* glfw_window = reinterpret_cast<GLFWwindow *>(userData);
         return (int)glfwCreateWindowSurface((VkInstance)instance, glfw_window, NULL, (VkSurfaceKHR *)out_surface);
     };
     handle.get_window_extent = [](void * userData) -> daxa::Extent2D
     {
-        auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        auto* glfw_window = reinterpret_cast<GLFWwindow *>(userData);
         int width, height;
         glfwGetWindowSize(glfw_window, &width, &height);
         return daxa::Extent2D{static_cast<daxa::u32>(width), static_cast<daxa::u32>(height)};
     };
-    return handle/* daxa::NativeWindowHandle{
-        .kind = daxa::NativeWindowKind::FUNCTIONS,
-        .userData = glfw_window_ptr,
-        .get_window_surface = [](void* instance, void * userData, void** out_surface) -> int
-        {
-            auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
-            return (int)glfwCreateWindowSurface((VkInstance)instance, glfw_window, NULL, (VkSurfaceKHR*)out_surface);
-        },
-        .get_window_extent = [](void * userData) -> daxa::Extent2D
-        {
-            auto * glfw_window = reinterpret_cast<GLFWwindow *>(userData);
-            int width, height;
-            glfwGetWindowSize(glfw_window, &width, &height);
-            return {static_cast<daxa::u32>(width), static_cast<daxa::u32>(height)};
-        }
-    }*/;
+    return handle;
 }
 
 auto get_native_platform(GLFWwindow * /*unused*/) -> daxa::NativeWindowPlatform
 {
-    /*
-#if defined(_WIN32)
-    return daxa::NativeWindowPlatform::WIN32_API;
-#elif defined(__linux__)
-    return daxa::NativeWindowPlatform::XLIB_API;
-#endif*/
     switch(glfwGetPlatform())
     {
         case GLFW_PLATFORM_WIN32:
@@ -115,7 +87,7 @@ auto main() -> int
     // These are settings of the choosen gpu, what resource limits, explicit features, name etc you want for the device.
     daxa::DeviceInfo2 device_info = {
         .explicit_features = {},
-        .max_allowed_buffers = 1024,
+        .max_allowed_buffers = 1024, // maximum number of resources is fixed and predetermined.
         .name = "my device",
     };
 

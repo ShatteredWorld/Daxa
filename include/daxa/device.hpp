@@ -196,6 +196,12 @@ namespace daxa
         u32 invocation_reorder_mode = {};
     };
 
+    struct HostImageCopyProperties
+    {
+        u8 optimal_tiling_layout_uuid[16U];
+        bool identical_memory_type_requirements;
+    };
+
 #if !DAXA_REMOVE_DEPRECATED
     struct DeviceFlagsProperties
     {
@@ -260,7 +266,6 @@ namespace daxa
         static inline constexpr MissingRequiredVkFeatureFlags SUBGROUP_SIZE_CONTROL = {0x1 << 29};
         static inline constexpr MissingRequiredVkFeatureFlags COMPUTE_FULL_SUBGROUPS = {0x1 << 30};
         static inline constexpr MissingRequiredVkFeatureFlags SCALAR_BLOCK_LAYOUT = {1ULL << 31};
-        static inline constexpr MissingRequiredVkFeatureFlags HOST_IMAGE_COPY = {1ULL << 32};
         static inline constexpr MissingRequiredVkFeatureFlags ACCELERATION_STRUCTURE_CAPTURE_REPLAY = {1ULL << 33};
         static inline constexpr MissingRequiredVkFeatureFlags VULKAN_MEMORY_MODEL = {1ULL << 34};
         static inline constexpr MissingRequiredVkFeatureFlags ROBUST_BUFFER_ACCESS2 = {1ULL << 35};
@@ -332,7 +337,8 @@ namespace daxa
         Optional<MeshShaderDeviceProperties> mesh_shading_properties = {};
         Optional<RayTracingPipelineProperties> ray_tracing_properties = {};
         Optional<AccelerationStructureProperties> acceleration_structure_properties = {};
-        Optional<InvocationReorderProperties> invocation_reorder_properties = {};
+        Optional<InvocationReorderProperties> ray_tracing_invocation_reorder_properties = {};
+        Optional<HostImageCopyProperties> host_image_copy_properties = {};
         u32 compute_queue_count = {};
         u32 transfer_queue_count = {};
         ImplicitFeatureFlags implicit_features;

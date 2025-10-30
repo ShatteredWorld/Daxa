@@ -63,71 +63,9 @@ auto make_subresource_layers(ImageArraySlice const & slice, VkImageAspectFlags a
 }
 auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[maybe_unused]] daxa_NativeWindowPlatform platform, VkSurfaceKHR * out_surface) -> daxa_Result
 {
-    if(handle.kind == DAXA_NATIVE_WINDOW_KIND_OPAQUE_POINTER)
-    {
-#if defined(_WIN32)
-        VkWin32SurfaceCreateInfoKHR const surface_ci{
-            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
-            .pNext = nullptr,
-            .flags = 0,
-            .hinstance = GetModuleHandleA(nullptr),
-            .hwnd = static_cast<HWND>(handle.handle),
-        };
-        {
-            auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
-            VkResult const vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
-            return std::bit_cast<daxa_Result>(vk_result);
-        }
-#elif defined(__linux__)
-        switch (std::bit_cast<daxa::NativeWindowPlatform>(platform))
-        {
-#if DAXA_BUILT_WITH_WAYLAND
-            case NativeWindowPlatform::WAYLAND_API:
-            {
-                // TODO(grundlett): figure out how to link Wayland
-                VkWaylandSurfaceCreateInfoKHR surface_ci{
-                    .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
-                    .pNext = nullptr,
-                    .flags = 0,
-                    .display = /*static_cast<wl_display *>(handle.wayland.display),//*/wl_display_connect(nullptr),
-                    .surface = static_cast<wl_surface *>(handle.handle),
-                };
-                {
-                    auto func = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
-                    VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
-                    return std::bit_cast<daxa_Result>(vk_result);
-                }
-            }
-            break;
-#endif
-#if DAXA_BUILT_WITH_X11
-            case NativeWindowPlatform::XLIB_API:
-            {
-                VkXlibSurfaceCreateInfoKHR surface_ci{
-                    .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
-                    .pNext = nullptr,
-                    .flags = 0,
-                    .dpy = /*static_cast<Display*>(handle.x11.display),//*/XOpenDisplay(nullptr),
-                    .window = reinterpret_cast<Window>(handle.handle),
-                };
-                {
-                    auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
-                    VkResult vk_result = func(instance->vk_instance, &surface_ci, nullptr, out_surface);
-                    return std::bit_cast<daxa_Result>(vk_result);
-                }
-            }
-            break;
-#endif
-            default: DAXA_DBG_ASSERT_TRUE_M(false, "Unsupported platform for opaque pointer window handle.");
-        }
-#endif
-    }
-    else
-    {
-        DAXA_DBG_ASSERT_TRUE_M(handle.get_window_surface != nullptr, "Native window handle must have a get_window_surface function pointer set when not using opaque pointer kind.");
-        VkResult vk_result = handle.get_window_surface(instance->vk_instance, handle.userData, out_surface);
-        return std::bit_cast<daxa_Result>(vk_result);
-    }
+    DAXA_DBG_ASSERT_TRUE_M(handle.get_window_surface != nullptr, "Native window handle must have a get_window_surface function pointer set when not using opaque pointer kind.");
+    VkResult vk_result = handle.get_window_surface(handle.userData, instance->vk_instance, out_surface);
+    return std::bit_cast<daxa_Result>(vk_result);
 }
 
 #define DAXA_ASSIGN_ARRAY_3(SRC) \
@@ -152,6 +90,12 @@ auto construct_daxa_physical_device_properties(VkPhysicalDevice physical_device)
     bool mesh_shader_supported = false;
     VkPhysicalDeviceMeshShaderPropertiesEXT vk_physical_device_mesh_shader_properties_ext = {};
     vk_physical_device_mesh_shader_properties_ext.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_PROPERTIES_EXT;
+
+    bool host_image_copy_supported = false;
+    VkPhysicalDeviceHostImageCopyPropertiesEXT vk_physical_device_host_image_copy_properties_ext = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT,
+        .pNext = nullptr,
+    };
 
     void * pNextChain = nullptr;
 
@@ -185,6 +129,12 @@ auto construct_daxa_physical_device_properties(VkPhysicalDevice physical_device)
             vk_physical_device_mesh_shader_properties_ext.pNext = pNextChain;
             pNextChain = &vk_physical_device_mesh_shader_properties_ext;
         }
+        if (std::strcmp(extension.extensionName, VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME) == 0)
+        {
+            host_image_copy_supported = true;
+            vk_physical_device_host_image_copy_properties_ext.pNext = pNextChain;
+            pNextChain = &vk_physical_device_host_image_copy_properties_ext;
+        }
     }
 
     VkPhysicalDeviceProperties2 vk_physical_device_properties2 = {
@@ -195,10 +145,12 @@ auto construct_daxa_physical_device_properties(VkPhysicalDevice physical_device)
 
     vkGetPhysicalDeviceProperties2(physical_device, &vk_physical_device_properties2);
     // physical device properties are ABI compatible UP TO the mesh_shader_properties field.
+    static_assert(offsetof(daxa_DeviceProperties, mesh_shader_properties) == offsetof(VkPhysicalDeviceProperties, sparseProperties));
     std::memcpy(
         &ret,
-        r_cast<std::byte const *>(&vk_physical_device_properties2) + sizeof(void *) * 2 /* skip sType and pNext */,
+        r_cast<std::byte const *>(&vk_physical_device_properties2) + sizeof(void *) * 2, // skip sType and pNext
         offsetof(daxa_DeviceProperties, mesh_shader_properties));
+
     if (ray_tracing_pipeline_supported)
     {
         ret.ray_tracing_pipeline_properties.has_value = 1;
@@ -234,6 +186,16 @@ auto construct_daxa_physical_device_properties(VkPhysicalDevice physical_device)
         ret.mesh_shader_properties.value.prefers_local_invocation_primitive_output = static_cast<daxa_Bool8>(vk_physical_device_mesh_shader_properties_ext.prefersLocalInvocationPrimitiveOutput);
         ret.mesh_shader_properties.value.prefers_compact_vertex_output = static_cast<daxa_Bool8>(vk_physical_device_mesh_shader_properties_ext.prefersCompactVertexOutput);
         ret.mesh_shader_properties.value.prefers_compact_primitive_output = static_cast<daxa_Bool8>(vk_physical_device_mesh_shader_properties_ext.prefersCompactPrimitiveOutput);
+    }
+    if (host_image_copy_supported)
+    {
+        ret.host_image_copy_properties.has_value = 1;
+        // skip not just sType and pNext, but also the src and dst image layout arrays.
+        std::memcpy(
+            &ret.host_image_copy_properties.value.optimal_tiling_layout_uuid[0],
+            r_cast<std::byte const *>(&vk_physical_device_host_image_copy_properties_ext.optimalTilingLayoutUUID[0]),
+            sizeof(daxa_HostImageCopyProperties::optimal_tiling_layout_uuid));
+        ret.host_image_copy_properties.value.identical_memory_type_requirements = static_cast<daxa_Bool8>(vk_physical_device_host_image_copy_properties_ext.identicalMemoryTypeRequirements);
     }
 
     u32 queue_family_props_count = 0;

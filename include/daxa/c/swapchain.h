@@ -8,51 +8,12 @@ DAXA_EXPORT int32_t
 daxa_default_format_selector(VkFormat format);
 
 /// @brief  A platform-dependent window resource.
-///         On Windows, this is an `HWND`
-///         On Linux X11, this is a `Window`
-///         On Linux Wayland, this is a `wl_surface *`
-//typedef void * daxa_NativeWindowHandle;
-
-typedef enum
-{
-    DAXA_NATIVE_WINDOW_KIND_OPAQUE_POINTER,
-    DAXA_NATIVE_WINDOW_KIND_FUNCTIONS,
-    DAXA_NATIVE_WINDOW_KIND_MAX_ENUM = 0x7fffffff,
-} daxa_NativeWindowKind;
-
 typedef struct
 {
-    daxa_NativeWindowKind kind;
-    union
-    {
-        void* handle;
-    
-        struct
-        {
-            void* userData;
-            VkResult (*get_window_surface) (VkInstance instance, void* userData, VkSurfaceKHR* out_surface);
-            VkExtent2D (*get_window_extent) (void* userData);
-        };
-    };
+    void* userData;
+    VkResult (*get_window_surface) (void* userData, VkInstance instance, VkSurfaceKHR* out_surface);
+    VkExtent2D (*get_window_extent) (void* userData);
 } daxa_NativeWindowHandle;
-    
-
-/*typedef union
-{
-    void* hwnd; // Windows HWND
-
-    struct
-    {
-        void* display; // X11 Display
-        void* window;  // X11 Window
-    } x11;
-    
-    struct
-    {
-        void* display; // Wayland Display
-        void* surface; // Wayland Surface
-    } wayland;
-} daxa_NativeWindowHandle;*/
 
 
 typedef enum

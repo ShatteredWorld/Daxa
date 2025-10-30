@@ -64,50 +64,12 @@
 namespace daxa
 {
     /// @brief  A platform-dependent window resource.
-    ///         On Windows, this is an `HWND`
-    ///         On Linux X11, this is a `Window`
-    ///         On Linux Wayland, this is a `wl_surface *`
-    //using NativeWindowHandle = void *;
-
-    enum struct NativeWindowKind
-    { 
-        OPAQUE_POINTER,
-        FUNCTIONS,
-        MAX_ENUM = 0x7fffffff,
-    };
-
     struct NativeWindowHandle
     {
-        NativeWindowKind kind;
-        union
-        {
-            void* handle;
-        
-            struct
-            {
-                void* userData;
-                int (*get_window_surface) (void* instance, void* userData, void** out_surface);
-                struct Extent2D (*get_window_extent) (void* userData);
-            };
-        };
+        void* userData;
+        int (*get_window_surface) (void* userData, void* instance, void** out_surface);
+        struct Extent2D (*get_window_extent) (void* userData);
     };
-    
-    /*union NativeWindowHandle
-    {
-        void* hwnd; // Windows HWND
-
-        struct
-        {
-            void* display; // X11 Display
-            void* window;  // X11 Window
-        } x11;
-        
-        struct
-        {
-            void* display; // Wayland Display
-            void* surface; // Wayland Surface
-        } wayland;
-    };*/
 
     enum struct NativeWindowPlatform
     {
