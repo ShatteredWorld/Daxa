@@ -118,17 +118,17 @@ jobs:
       run: |
         if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
           cd "${{ github.workspace }}/install"
-          7z a -tzip "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}.zip" .
+          7z a -tzip "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-pm${{ matrix.pipeline_manager }}.zip" .
         else
           cd "${{ github.workspace }}/install"
-          zip -r "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}.zip" .
+          zip -r "${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-pm${{ matrix.pipeline_manager }}.zip" .
         fi
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}
-        path: ${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-pm${{ matrix.build_type }}.zip
+        name: ${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-pm${{ matrix.pipeline_manager }}
+        path: ${{ github.workspace }}/${{ matrix.os_name }}-${{ matrix.c_compiler }}-${{ matrix.build_type }}-pm${{ matrix.pipeline_manager }}.zip
 
   release:
     needs: build
