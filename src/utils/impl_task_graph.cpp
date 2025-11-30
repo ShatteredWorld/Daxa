@@ -384,8 +384,9 @@ namespace daxa
     auto task_image_access_to_layout_access(TaskAccess const & taccess) -> std::tuple<ImageLayout, Access, TaskAccessConcurrency>
     {
         auto const [access, concurrency] = task_access_to_access(taccess);
-        bool const used_in_shader = is_task_stage_shader_access(taccess.stage);
-        bool const used_as_attachment = taccess.stage == TaskStage::COLOR_ATTACHMENT ||
+        // Kept for future reference:
+        [[maybe_unused]] bool const used_in_shader = is_task_stage_shader_access(taccess.stage);
+        [[maybe_unused]] bool const used_as_attachment = taccess.stage == TaskStage::COLOR_ATTACHMENT ||
                                         taccess.stage == TaskStage::DEPTH_STENCIL_ATTACHMENT ||
                                         taccess.stage == TaskStage::RESOLVE;
 
@@ -1934,7 +1935,7 @@ namespace daxa
         // Make sure we have enough batches.
         if (first_possible_batch_index >= queue_submit_scope.task_batches.size())
         {
-            queue_submit_scope.task_batches.resize(first_possible_batch_index + 1,
+            queue_submit_scope.task_batches.resize(static_cast<u32>(first_possible_batch_index) + 1u,
                                                    TaskBatch{
                                                        .pipeline_barrier_indices = {&impl.mk2.task_memory},
                                                        .wait_split_barrier_indices = {&impl.mk2.task_memory},
@@ -3422,8 +3423,8 @@ namespace daxa
     }
 
     thread_local std::vector<EventWaitInfo> tl_split_barrier_wait_infos = {};
-    thread_local std::vector<ImageMemoryBarrierInfo> tl_image_barrier_infos = {};
-    thread_local std::vector<MemoryBarrierInfo> tl_memory_barrier_infos = {};
+    thread_local std::vector<ImageBarrierInfo> tl_image_barrier_infos = {};
+    thread_local std::vector<BarrierInfo> tl_memory_barrier_infos = {};
     void insert_pipeline_barrier(ImplTaskGraph const & impl, TaskGraphPermutation & perm, CommandRecorder & command_list, TaskBarrier & barrier)
     {
         // Check if barrier is image barrier or normal barrier (see TaskBarrier struct comments).
@@ -3452,7 +3453,6 @@ namespace daxa
                     .dst_access = barrier.dst_access,
                     .src_layout = barrier.layout_before,
                     .dst_layout = barrier.layout_after,
-                    .image_slice = barrier.slice,
                     .image_id = image,
                 });
             }
@@ -3502,7 +3502,7 @@ namespace daxa
                     continue;
                 }
 
-                MemoryBarrierInfo const mem_barrier_info{
+                BarrierInfo const mem_barrier_info{
                     .src_access = persistent_data.latest_access,
                     .dst_access = permutation.buffer_infos[task_buffer_index].first_access,
                 };
@@ -3570,7 +3570,6 @@ namespace daxa
                                     .dst_access = remaining_first_accesses[first_access_slice_index].state.latest_access,
                                     .src_layout = previous_access_slices[previous_access_slice_index].latest_layout,
                                     .dst_layout = remaining_first_accesses[first_access_slice_index].state.latest_layout,
-                                    .image_slice = intersection,
                                     .image_id = execution_image_id,
                                 };
                                 recorder.pipeline_barrier_image_transition(img_barrier_info);
@@ -3632,7 +3631,6 @@ namespace daxa
                             .dst_access = remaining_first_accesse.state.latest_access,
                             .src_layout = ImageLayout::UNDEFINED,
                             .dst_layout = remaining_first_accesse.state.latest_layout,
-                            .image_slice = remaining_first_accesse.state.slice,
                             .image_id = execution_image_id,
                         };
                         recorder.pipeline_barrier_image_transition(img_barrier_info);
@@ -3785,12 +3783,12 @@ namespace daxa
                             TaskSplitBarrier & split_barrier = permutation.split_barriers[barrier_index];
                             if (split_barrier.image_id.is_empty())
                             {
-                                tl_memory_barrier_infos.push_back(MemoryBarrierInfo{
+                                tl_memory_barrier_infos.push_back(BarrierInfo{
                                     .src_access = split_barrier.src_access,
                                     .dst_access = split_barrier.dst_access,
                                 });
                                 tl_split_barrier_wait_infos.push_back(EventWaitInfo{
-                                    .memory_barriers = std::span{&tl_memory_barrier_infos.back(), 1},
+                                    .barriers = std::span{&tl_memory_barrier_infos.back(), 1},
                                     .event = split_barrier.split_barrier_state,
                                 });
                             }
@@ -3799,13 +3797,21 @@ namespace daxa
                                 usize const img_bar_vec_start_size = tl_image_barrier_infos.size();
                                 for (auto image : impl.get_actual_images(split_barrier.image_id, permutation))
                                 {
-                                    tl_image_barrier_infos.push_back(ImageMemoryBarrierInfo{
+                                    ImageBarrierMemoryOp op = {};
+                                    if (split_barrier.layout_before == ImageLayout::UNDEFINED)
+                                    {
+                                        op = ImageBarrierMemoryOp::TO_GENERAL;
+                                    }
+                                    if (split_barrier.layout_after == ImageLayout::PRESENT_SRC)
+                                    {
+                                        op = ImageBarrierMemoryOp::TO_PRESENT_SRC;
+                                    }
+
+                                    tl_image_barrier_infos.push_back(ImageBarrierInfo{
                                         .src_access = split_barrier.src_access,
                                         .dst_access = split_barrier.dst_access,
-                                        .src_layout = split_barrier.layout_before,
-                                        .dst_layout = split_barrier.layout_after,
-                                        .image_slice = split_barrier.slice,
                                         .image_id = image,
+                                        .memory_op = op,
                                     });
                                 }
                                 usize const img_bar_vec_end_size = tl_image_barrier_infos.size();
@@ -3850,12 +3856,12 @@ namespace daxa
                             TaskSplitBarrier & task_split_barrier = permutation.split_barriers[barrier_index];
                             if (task_split_barrier.image_id.is_empty())
                             {
-                                MemoryBarrierInfo memory_barrier{
+                                BarrierInfo memory_barrier{
                                     .src_access = task_split_barrier.src_access,
                                     .dst_access = task_split_barrier.dst_access,
                                 };
                                 impl_runtime.recorder.signal_event({
-                                    .memory_barriers = std::span{&memory_barrier, 1},
+                                    .barriers = std::span{&memory_barrier, 1},
                                     .event = task_split_barrier.split_barrier_state,
                                 });
                             }
@@ -3863,13 +3869,20 @@ namespace daxa
                             {
                                 for (auto image : impl.get_actual_images(task_split_barrier.image_id, permutation))
                                 {
+                                    ImageBarrierMemoryOp op = {};
+                                    if (task_split_barrier.layout_before == ImageLayout::UNDEFINED)
+                                    {
+                                        op = ImageBarrierMemoryOp::TO_GENERAL;
+                                    }
+                                    if (task_split_barrier.layout_after == ImageLayout::PRESENT_SRC)
+                                    {
+                                        op = ImageBarrierMemoryOp::TO_PRESENT_SRC;
+                                    }
                                     tl_image_barrier_infos.push_back({
                                         .src_access = task_split_barrier.src_access,
                                         .dst_access = task_split_barrier.dst_access,
-                                        .src_layout = task_split_barrier.layout_before,
-                                        .dst_layout = task_split_barrier.layout_after,
-                                        .image_slice = task_split_barrier.slice,
                                         .image_id = image,
+                                        .memory_op = op,
                                     });
                                 }
                                 impl_runtime.recorder.signal_event({
@@ -4195,7 +4208,7 @@ namespace daxa
         TaskBarrier const & barrier = split_barrier ? permutation.split_barriers[index] : permutation.barriers[index];
         if (barrier.image_id.is_empty())
         {
-            MemoryBarrierInfo const mem_barrier{
+            BarrierInfo const mem_barrier{
                 .src_access = barrier.src_access,
                 .dst_access = barrier.dst_access,
             };
@@ -4204,7 +4217,7 @@ namespace daxa
         else
         {
             std::format_to(std::back_inserter(out), "{}slice: ({})\n", indent, to_string(barrier.slice));
-            std::format_to(std::back_inserter(out), "{}{}\n", indent, to_string(MemoryBarrierInfo{.src_access = barrier.src_access, .dst_access = barrier.dst_access}));
+            std::format_to(std::back_inserter(out), "{}{}\n", indent, to_string(BarrierInfo{.src_access = barrier.src_access, .dst_access = barrier.dst_access}));
             std::format_to(std::back_inserter(out), "{}layout: ({}) -> ({})\n", indent, to_string(barrier.layout_before), to_string(barrier.layout_after));
             print_task_image_to(out, indent, permutation, barrier.image_id);
         }

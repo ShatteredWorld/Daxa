@@ -1,3 +1,4 @@
+#define DAXA_REMOVE_DEPRECATED 0
 #include <daxa/daxa.hpp>
 
 #include <vulkan/vulkan_core.h>
@@ -8,6 +9,8 @@
 #define GLFW_EXPOSE_NATIVE_X11
 #endif
 #include <GLFW/glfw3native.h>
+
+#include <span>
 
 auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
 {

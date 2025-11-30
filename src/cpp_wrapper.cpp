@@ -1124,8 +1124,10 @@ namespace daxa
             r_cast<daxa_BuildAccelerationStucturesInfo const *>(&info));
         check_result(result, "failed to build acceleration structures");
     }
-    DAXA_DECL_COMMAND_LIST_WRAPPER(CommandRecorder, pipeline_barrier, MemoryBarrierInfo)
+    DAXA_DECL_COMMAND_LIST_WRAPPER(CommandRecorder, pipeline_barrier, BarrierInfo)
+    DAXA_DECL_COMMAND_LIST_WRAPPER_CHECK_RESULT(CommandRecorder, pipeline_image_barrier, ImageBarrierInfo)
     DAXA_DECL_COMMAND_LIST_WRAPPER_CHECK_RESULT(CommandRecorder, pipeline_barrier_image_transition, ImageMemoryBarrierInfo)
+
     DAXA_DECL_COMMAND_LIST_WRAPPER(CommandRecorder, signal_event, EventSignalInfo)
 
     void CommandRecorder::wait_events(daxa::Span<EventWaitInfo const> const & infos)
@@ -1295,19 +1297,38 @@ namespace daxa
         }
     }
 
-    auto to_string(MemoryBarrierInfo const & info) -> std::string
+    auto to_string(BarrierInfo const & info) -> std::string
     {
         return std::format("access: ({}) -> ({})", to_string(info.src_access), to_string(info.dst_access));
     }
 
-    auto to_string(ImageMemoryBarrierInfo const & info) -> std::string
+    [[deprecated]] auto to_string(ImageMemoryBarrierInfo const & info) -> std::string
     {
-        return std::format("access: ({}) -> ({}), layout: ({}) -> ({}), slice: {}, id: {}",
+        return std::format("access: ({}) -> ({}), layout: ({}) -> ({}), id: {}, SLICE IGNORED",
                            to_string(info.src_access),
                            to_string(info.dst_access),
                            to_string(info.src_layout),
                            to_string(info.dst_layout),
-                           to_string(info.image_slice),
+                           to_string(info.image_id));
+    }
+    
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(ImageBarrierInfo const & info) -> std::string
+    {
+        ImageLayout src_layout = ImageLayout::GENERAL;
+        ImageLayout dst_layout = ImageLayout::GENERAL;
+        if (info.memory_op == ImageBarrierMemoryOp::TO_GENERAL)
+        {
+            src_layout = ImageLayout::UNDEFINED;
+        }
+        if (info.memory_op == ImageBarrierMemoryOp::TO_PRESENT_SRC)
+        {
+            dst_layout = ImageLayout::PRESENT_SRC;
+        }
+        return std::format("access: ({}) -> ({}), layout: ({}) -> ({}), id: {}",
+                           to_string(info.src_access),
+                           to_string(info.dst_access),
+                           to_string(src_layout),
+                           to_string(dst_layout),
                            to_string(info.image_id));
     }
 
@@ -1344,12 +1365,6 @@ namespace daxa
         {
         case ImageLayout::UNDEFINED: return "UNDEFINED";
         case ImageLayout::GENERAL: return "GENERAL";
-#if !DAXA_REMOVE_DEPRECATED
-        case ImageLayout::TRANSFER_SRC_OPTIMAL: return "TRANSFER_SRC_OPTIMAL";
-        case ImageLayout::TRANSFER_DST_OPTIMAL: return "TRANSFER_DST_OPTIMAL";
-        case ImageLayout::READ_ONLY_OPTIMAL: return "READ_ONLY_OPTIMAL";
-        case ImageLayout::ATTACHMENT_OPTIMAL: return "ATTACHMENT_OPTIMAL";
-#endif
         case ImageLayout::PRESENT_SRC: return "PRESENT_SRC";
         default: return "INVALID LAYOUT";
         }

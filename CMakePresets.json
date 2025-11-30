@@ -20,7 +20,7 @@
                 "DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SLANG": true,
                 "DAXA_ENABLE_UTILS_PIPELINE_MANAGER_SPIRV_VALIDATION": false,
                 "DAXA_ENABLE_UTILS_TASK_GRAPH": true,
-                "DAXA_ENABLE_TESTS": false,
+                "DAXA_ENABLE_TESTS": true,
                 "DAXA_ENABLE_TOOLS": false,
                 "DAXA_ENABLE_STATIC_ANALYSIS": false,
                 "CMAKE_EXPORT_COMPILE_COMMANDS": true
