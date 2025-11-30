@@ -1,5 +1,11 @@
 #pragma once
 
+#define ENABLE_TASK_GRAPH_MK2 1
+
+#if ENABLE_TASK_GRAPH_MK2
+#include "impl_task_graph_mk2.hpp"
+#else
+
 #include "../impl_core.hpp"
 
 #include <atomic>
@@ -7,7 +13,6 @@
 #include <sstream>
 #include <daxa/utils/task_graph.hpp>
 
-#include "impl_task_graph_mk2.hpp"
 
 #define DAXA_TASK_GRAPH_MAX_CONDITIONALS 5
 
@@ -370,7 +375,7 @@ namespace daxa
 
         TaskGraphInfo info;
 
-        ImplTaskGraphMk2 mk2;
+        MemoryArena task_memory = {};
 
         std::vector<PermIndepTaskBufferInfo> global_buffer_infos = {};
         std::vector<PermIndepTaskImageInfo> global_image_infos = {};
@@ -533,3 +538,4 @@ namespace daxa
     };
 
 } // namespace daxa
+#endif

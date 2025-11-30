@@ -1126,7 +1126,25 @@ namespace daxa
     }
     DAXA_DECL_COMMAND_LIST_WRAPPER(CommandRecorder, pipeline_barrier, BarrierInfo)
     DAXA_DECL_COMMAND_LIST_WRAPPER_CHECK_RESULT(CommandRecorder, pipeline_image_barrier, ImageBarrierInfo)
-    DAXA_DECL_COMMAND_LIST_WRAPPER_CHECK_RESULT(CommandRecorder, pipeline_barrier_image_transition, ImageMemoryBarrierInfo)
+
+    [[deprecated]] void CommandRecorder::pipeline_barrier_image_transition(ImageMemoryBarrierInfo const & info)
+    {
+        // All non general image layouts are treated as general layout.
+        ImageBarrierInfo new_info = {};
+        new_info.src_access = info.src_access;
+        new_info.dst_access = info.dst_access;
+        new_info.image_id = info.image_id;
+        if (info.src_layout == daxa::ImageLayout::UNDEFINED)
+        {
+            new_info.layout_operation = daxa::ImageLayoutOperation::TO_GENERAL;
+        }
+        if (info.dst_layout == daxa::ImageLayout::PRESENT_SRC)
+        {
+            new_info.layout_operation = daxa::ImageLayoutOperation::TO_PRESENT_SRC;
+        }
+        
+        this->pipeline_image_barrier(new_info);
+    }
 
     DAXA_DECL_COMMAND_LIST_WRAPPER(CommandRecorder, signal_event, EventSignalInfo)
 
@@ -1312,15 +1330,15 @@ namespace daxa
                            to_string(info.image_id));
     }
     
-    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(ImageBarrierInfo const & info) -> std::string
+    DAXA_EXPORT_CXX auto to_string(ImageBarrierInfo const & info) -> std::string
     {
         ImageLayout src_layout = ImageLayout::GENERAL;
         ImageLayout dst_layout = ImageLayout::GENERAL;
-        if (info.memory_op == ImageBarrierMemoryOp::TO_GENERAL)
+        if (info.layout_operation == ImageLayoutOperation::TO_GENERAL)
         {
             src_layout = ImageLayout::UNDEFINED;
         }
-        if (info.memory_op == ImageBarrierMemoryOp::TO_PRESENT_SRC)
+        if (info.layout_operation == ImageLayoutOperation::TO_PRESENT_SRC)
         {
             dst_layout = ImageLayout::PRESENT_SRC;
         }

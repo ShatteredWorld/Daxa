@@ -51,7 +51,6 @@ add_library(daxa
 
     "src/utils/impl_task_graph_c.cpp"
     "src/utils/impl_task_graph.cpp"
-    "src/utils/impl_task_graph_mk2.cpp"
     "src/utils/impl_imgui.cpp"
     "src/utils/impl_fsr3.cpp"
     "src/utils/impl_mem.cpp"
