@@ -245,7 +245,7 @@ namespace daxa
 
     auto to_access_type(TaskAccessType taccess) -> AccessTypeFlags
     {
-        AccessTypeFlags ret = {};
+        AccessTypeFlags ret;
         switch (taccess)
         {
         case TaskAccessType::NONE: ret = AccessTypeFlagBits::NONE; break;
@@ -1364,10 +1364,9 @@ namespace daxa
             {
                 auto name_sw = impl.info.device.image_info(actual_images[index]).value().name;
                 std::string const & name = {name_sw.data(), name_sw.size()};
-                [[maybe_unused]] std::string const error_message =
-                    std::format(R"(task image argument (arg index: {}, task image: "{}", slice: {}) exceeds runtime image (index: {}, name: "{}") dimensions ({})!)",
-                                use_index, task_name, to_string(access_slice), index, name, to_string(full_slice));
-                DAXA_DBG_ASSERT_TRUE_M(use_within_runtime_image_counts, error_message);
+                DAXA_DBG_ASSERT_TRUE_M(use_within_runtime_image_counts,
+                                        std::format(R"(task image argument (arg index: {}, task image: "{}", slice: {}) exceeds runtime image (index: {}, name: "{}") dimensions ({})!)",
+                                                    use_index, task_name, to_string(access_slice), index, name, to_string(full_slice)));
             }
         }
 #endif
@@ -1383,8 +1382,8 @@ namespace daxa
         {
             [[maybe_unused]] bool const access_valid = (impl.info.device.image_info(image).value().usage & use_flags) != ImageUsageFlagBits::NONE;
             DAXA_DBG_ASSERT_TRUE_M(access_valid, std::format("Detected invalid runtime image \"{}\" of task image \"{}\", in use {} of task \"{}\". "
-                                                             "The given runtime image does NOT have the image use flag {} set, but the task use requires this use for all runtime images!",
-                                                             impl.info.device.image_info(image).value().name.view(), task_image_name, use_index, task_name, daxa::to_string(use_flags)));
+                                                              "The given runtime image does NOT have the image use flag {} set, but the task use requires this use for all runtime images!",
+                                                              impl.info.device.image_info(image).value().name.view(), task_image_name, use_index, task_name, daxa::to_string(use_flags)));
         }
 #endif
     }
@@ -1750,7 +1749,7 @@ namespace daxa
         [[maybe_unused]] bool const already_active = ((impl.record_active_conditional_scopes >> conditional_info.condition_index) & 1u) != 0;
         DAXA_DBG_ASSERT_TRUE_M(!already_active, "can not nest scopes of the same condition in itself.");
         DAXA_DBG_ASSERT_TRUE_M(conditional_info.condition_index < impl.info.permutation_condition_count,
-                               std::format("Detected invalid conditional index {}; conditional indices must all be smaller then the conditional count given in construction", conditional_info.condition_index));
+                              std::format("Detected invalid conditional index {}; conditional indices must all be smaller then the conditional count given in construction", conditional_info.condition_index));
         // Set conditional scope to active.
         impl.record_active_conditional_scopes |= 1u << conditional_info.condition_index;
         impl.update_active_permutations();
@@ -3000,7 +2999,7 @@ namespace daxa
                         .array_layer_count = trans_img_info.array_layer_count,
                         .sample_count = trans_img_info.sample_count,
                         .usage = permut_image.usage,
-                        .allocate_info = MemoryFlagBits::DEDICATED_MEMORY,
+                        .allocate_info = {},
                         .name = "Dummy to figure mem requirements",
                     };
                     permut_image.memory_requirements = info.device.memory_requirements({image_info});
@@ -3017,7 +3016,7 @@ namespace daxa
                     TaskTransientBufferInfo trans_buf_info = daxa::get<PermIndepTaskBufferInfo::Owned>(global_buffer.task_buffer_data).info;
                     BufferInfo buffer_info{
                         .size = trans_buf_info.size,
-                        .allocate_info = MemoryFlagBits::DEDICATED_MEMORY,
+                        .allocate_info = {},
                         .name = "Dummy to figure mem requirements",
                     };
                     permut_buffer.memory_requirements = info.device.memory_requirements({buffer_info});
@@ -3304,7 +3303,7 @@ namespace daxa
                 .alignment = max_alignment_requirement,
                 .memory_type_bits = memory_type_bits,
             },
-            .flags = MemoryFlagBits::DEDICATED_MEMORY,
+            .flags = {},
         });
     }
 
@@ -3454,7 +3453,7 @@ namespace daxa
                         std::string(" of task image \"") +
                         std::string(impl.global_image_infos[barrier.image_id.index].name) +
                         std::string("\" is invalid"));
-                command_list.pipeline_image_barrier({
+                command_list.pipeline_barrier_image_transition({
                     .src_access = barrier.src_access,
                     .dst_access = barrier.dst_access,
                     .src_layout = barrier.layout_before,
@@ -3578,7 +3577,7 @@ namespace daxa
                                     .dst_layout = remaining_first_accesses[first_access_slice_index].state.latest_layout,
                                     .image_id = execution_image_id,
                                 };
-                                recorder.pipeline_image_barrier(img_barrier_info);
+                                recorder.pipeline_barrier_image_transition(img_barrier_info);
                                 if (impl.info.record_debug_information)
                                 {
                                     std::format_to(std::back_inserter(out), "{}{}\n", indent, to_string(img_barrier_info));
@@ -3639,7 +3638,7 @@ namespace daxa
                             .dst_layout = remaining_first_accesse.state.latest_layout,
                             .image_id = execution_image_id,
                         };
-                        recorder.pipeline_image_barrier(img_barrier_info);
+                        recorder.pipeline_barrier_image_transition(img_barrier_info);
                         if (impl.info.record_debug_information)
                         {
                             std::format_to(std::back_inserter(out), "{}{}\n", indent, to_string(img_barrier_info));
@@ -3956,6 +3955,13 @@ namespace daxa
                             wait_binary_semaphores.push_back(impl.info.swapchain.value().current_acquire_semaphore());
                             signal_binary_semaphores.push_back(impl.info.swapchain.value().current_present_semaphore());
                         }
+                        if (!tl_split_barrier_wait_infos.empty())
+                        {
+                            impl_runtime.recorder.wait_events(tl_split_barrier_wait_infos);
+                        }
+                        tl_split_barrier_wait_infos.clear();
+                        tl_image_barrier_infos.clear();
+                        tl_memory_barrier_infos.clear();
                     }
                     if (submit_scope.user_submit_info.additional_command_lists != nullptr)
                     {

@@ -2,11 +2,12 @@
 
 #include "impl_device.hpp"
 
+#include <unordered_map>
 #include <utility>
-#include <functional>
+#include "daxa/core.hpp"
 #include "impl_features.hpp"
-
-#include "impl_device.hpp"
+#include "impl_swapchain.hpp"
+#include "impl_instance.hpp"
 
 /// --- Begin Helpers ---
 
@@ -178,17 +179,17 @@ auto create_buffer_helper(daxa_Device self, daxa_BufferInfo const * info, daxa_B
     };
 
     bool host_accessible = false;
+    daxa_MemoryFlags vma_allocation_flags = opt_memory_block != nullptr ? opt_memory_block->info.flags : info->allocate_info;
+    if (((vma_allocation_flags & DAXA_MEMORY_FLAG_HOST_ACCESS_RANDOM) != 0u) ||
+        ((vma_allocation_flags & DAXA_MEMORY_FLAG_HOST_ACCESS_SEQUENTIAL_WRITE) != 0u))
+    {
+        vma_allocation_flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        host_accessible = true;
+    }
+
     VmaAllocationInfo vma_allocation_info = {};
     if (opt_memory_block == nullptr)
     {
-        auto vma_allocation_flags = static_cast<VmaAllocationCreateFlags>(info->allocate_info);
-        if (((vma_allocation_flags & VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT) != 0u) ||
-            ((vma_allocation_flags & VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT) != 0u) ||
-            ((vma_allocation_flags & VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT) != 0u))
-        {
-            vma_allocation_flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-            host_accessible = true;
-        }
 
         VmaAllocationCreateInfo const vma_allocation_create_info{
             .flags = vma_allocation_flags,
@@ -209,13 +210,26 @@ auto create_buffer_helper(daxa_Device self, daxa_BufferInfo const * info, daxa_B
             &ret.vma_allocation,
             &vma_allocation_info));
         _DAXA_RETURN_IF_ERROR(result, result)
+
+        if (host_accessible)
+        {
+            hot_data.host_address = vma_allocation_info.pMappedData;
+        }
     }
     else
     {
         auto const & mem_block = *opt_memory_block;
-        ret.opt_memory_block = opt_memory_block;
-        opt_memory_block->inc_weak_refcnt();
 
+        bool const invalidMemoryFlags = info->allocate_info != DAXA_MEMORY_FLAG_NONE;
+        if (invalidMemoryFlags)
+        {
+            _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_ALLOC_FLAGS_MUST_BE_ZERO_ON_BLOCK_ALLOCATION, DAXA_RESULT_ERROR_ALLOC_FLAGS_MUST_BE_ZERO_ON_BLOCK_ALLOCATION);
+        }
+
+        // copy flags from memory block to buffer info.
+        ret.info.allocate_info = opt_memory_block->info.flags;
+
+        ret.opt_memory_block = opt_memory_block;
         result = static_cast<daxa_Result>(vkCreateBuffer(self->vk_device, &vk_buffer_create_info, nullptr, &hot_data.vk_buffer));
         _DAXA_RETURN_IF_ERROR(result, result)
 
@@ -225,7 +239,17 @@ auto create_buffer_helper(daxa_Device self, daxa_BufferInfo const * info, daxa_B
             opt_offset,
             hot_data.vk_buffer,
             {}));
+        if (result != DAXA_RESULT_SUCCESS)
+        {
+            vkDestroyBuffer(self->vk_device, hot_data.vk_buffer, nullptr);
+        }
         _DAXA_RETURN_IF_ERROR(result, result)
+
+        opt_memory_block->inc_weak_refcnt();
+        if (host_accessible)
+        {
+            hot_data.host_address = static_cast<void*>(static_cast<u8*>(opt_memory_block->alloc_info.pMappedData) + opt_offset);
+        }
     }
 
     VkBufferDeviceAddressInfo const vk_buffer_device_address_info{
@@ -235,8 +259,6 @@ auto create_buffer_helper(daxa_Device self, daxa_BufferInfo const * info, daxa_B
     };
 
     hot_data.device_address = vkGetBufferDeviceAddress(self->vk_device, &vk_buffer_device_address_info);
-
-    hot_data.host_address = host_accessible ? vma_allocation_info.pMappedData : nullptr;
 
     self->buffer_device_address_buffer_host_ptr[id.index] = hot_data.device_address;
 
@@ -374,9 +396,17 @@ auto create_image_helper(daxa_Device self, daxa_ImageInfo const * info, daxa_Ima
     else
     {
         daxa_ImplMemoryBlock const & mem_block = *opt_memory_block;
+        
+        bool const invalidMemoryFlags = info->allocate_info != DAXA_MEMORY_FLAG_NONE;
+        if (invalidMemoryFlags)
+        {
+            _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_ALLOC_FLAGS_MUST_BE_ZERO_ON_BLOCK_ALLOCATION, DAXA_RESULT_ERROR_ALLOC_FLAGS_MUST_BE_ZERO_ON_BLOCK_ALLOCATION);
+        }
+
+        // copy flags from memory block to image info.
+        ret.info.allocate_info = opt_memory_block->info.flags;
+
         ret.opt_memory_block = opt_memory_block;
-        opt_memory_block->inc_weak_refcnt();
-        // TODO(pahrens): Add validation for memory requirements.
         result = static_cast<daxa_Result>(vkCreateImage(self->vk_device, &vk_image_create_info, nullptr, &ret.vk_image));
         _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_IMAGE);
 
@@ -386,11 +416,17 @@ auto create_image_helper(daxa_Device self, daxa_ImageInfo const * info, daxa_Ima
             opt_offset,
             ret.vk_image,
             {}));
+        if (result != DAXA_RESULT_SUCCESS)
+        {
+            vkDestroyImage(self->vk_device, ret.vk_image, nullptr);
+        }
         _DAXA_RETURN_IF_ERROR(result, result);
 
         vk_image_view_create_info.image = ret.vk_image;
         result = static_cast<daxa_Result>(vkCreateImageView(self->vk_device, &vk_image_view_create_info, nullptr, &ret.view_slot.vk_image_view));
         _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_DEFAULT_IMAGE_VIEW);
+        
+        opt_memory_block->inc_weak_refcnt();
     }
 
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && info->name.size != 0)
@@ -753,9 +789,6 @@ auto daxa_default_device_score(daxa_DeviceProperties const * c_properties) -> i3
 {
     DeviceProperties const * properties = r_cast<DeviceProperties const *>(c_properties);
     i32 score = 0;
-    // TODO: Maybe just return an unconditional score of 1 to make it so the
-    // first GPU is selected. In `daxa_instance_create_device`, incompatible
-    // devices should be discarded.
     switch (properties->device_type)
     {
     case daxa::DeviceType::DISCRETE_GPU: score += 10000; break;
@@ -789,7 +822,6 @@ auto daxa_dvc_buffer_memory_requirements(daxa_Device self, daxa_BufferInfo const
         .memoryRequirements = {},
     };
     vkGetDeviceBufferMemoryRequirements(self->vk_device, &buffer_requirement_info, &mem_requirements);
-    // MemoryRequirements ret = std::bit_cast<MemoryRequirements>(mem_requirements.memoryRequirements);
     return mem_requirements.memoryRequirements;
 }
 
@@ -1217,7 +1249,7 @@ auto daxa_dvc_buffer_host_address(daxa_Device self, daxa_BufferId id, void ** ou
     }
     if (hot_data->host_address == 0)
     {
-        return DAXA_RESULT_BUFFER_NOT_HOST_VISIBLE;
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_BUFFER_NOT_HOST_VISIBLE, DAXA_RESULT_BUFFER_NOT_HOST_VISIBLE);
     }
     *out_addr = hot_data->host_address;
     return DAXA_RESULT_SUCCESS;
@@ -1258,6 +1290,20 @@ auto daxa_dvc_get_vk_device(daxa_Device self) -> VkDevice
 auto daxa_dvc_get_vk_physical_device(daxa_Device self) -> VkPhysicalDevice
 {
     return self->vk_physical_device;
+}
+
+auto daxa_dvc_get_vk_queue(daxa_Device self, daxa_Queue queue, VkQueue* vk_queue, uint32_t* vk_queue_family_index) -> daxa_Result
+{
+    if (!self->valid_queue(queue))
+    {
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
+    }
+    auto const& daxa_queue = self->get_queue(queue);
+    if (vk_queue)
+        *vk_queue = daxa_queue.vk_queue;
+    if (vk_queue_family_index)
+        *vk_queue_family_index = daxa_queue.vk_queue_family_index;
+    return DAXA_RESULT_SUCCESS;
 }
 
 auto daxa_dvc_wait_idle(daxa_Device self) -> daxa_Result
@@ -1473,8 +1519,6 @@ auto daxa_dvc_present(daxa_Device self, daxa_PresentInfo const * info) -> daxa_R
     };
 
     auto result = static_cast<daxa_Result>(vkQueuePresentKHR(self->get_queue(info->queue).vk_queue, &present_info));
-    _DAXA_RETURN_IF_ERROR(result, result)
-
     return std::bit_cast<daxa_Result>(result);
 }
 
@@ -1661,6 +1705,13 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
     // Queue Selection and Verification
     u32 vk_queue_request_count = {};
     std::array<VkDeviceQueueCreateInfo, 3> queues_ci = {};
+    std::array<f32, std::max(DAXA_MAX_COMPUTE_QUEUE_COUNT, DAXA_MAX_TRANSFER_QUEUE_COUNT)> queue_priorities = {0.0f, 0.0f, 0.0f, 0.0f};
+    struct QueueRequest
+    {
+        u32 vk_family_index;
+        u32 count;
+    };
+    std::array<QueueRequest, 3> vk_queue_requests = {};
     {
         u32 queue_family_props_count = 0;
         std::vector<VkQueueFamilyProperties> queue_props;
@@ -1671,12 +1722,6 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
         supports_present.resize(queue_family_props_count);
 
         // SELECT QUEUE FAMILIES
-        struct QueueRequest
-        {
-            u32 vk_family_index;
-            u32 count;
-        };
-        std::array<QueueRequest, 3> vk_queue_requests = {};
         for (u32 i = 0; i < queue_family_props_count; i++)
         {
             bool const supports_graphics = queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT;
@@ -1713,8 +1758,6 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
             result = DAXA_RESULT_ERROR_NO_GRAPHICS_QUEUE_FOUND;
         }
         _DAXA_RETURN_IF_ERROR(result, result)
-
-        std::array<f32, std::max(DAXA_MAX_COMPUTE_QUEUE_COUNT, DAXA_MAX_TRANSFER_QUEUE_COUNT)> queue_priorities = {0.0f, 0.0f, 0.0f, 0.0f};
 
         for (u32 family = 0; family < vk_queue_request_count; ++family)
         {
@@ -1969,7 +2012,6 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
         VmaAllocationInfo vma_allocation_info = {};
 
         auto vma_allocation_flags = static_cast<VmaAllocationCreateFlags>(
-            VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT |
             VMA_ALLOCATION_CREATE_MAPPED_BIT |
             VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT);
 
@@ -2010,13 +2052,13 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
             .sample_count = 1,
             .usage = ImageUsageFlagBits::SHADER_SAMPLED | ImageUsageFlagBits::SHADER_STORAGE | ImageUsageFlagBits::TRANSFER_DST,
             .sharing_mode = SharingMode::CONCURRENT,
-            .allocate_info = MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = {},
         };
         VkImageCreateInfo const vk_image_create_info = initialize_image_create_info_from_image_info(
             self, *r_cast<daxa_ImageInfo const *>(&image_info));
 
         VmaAllocationCreateInfo const null_img_allocation_create_info{
-            .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT,
+            .flags = {},
             .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
             .requiredFlags = {},
             .preferredFlags = {},
@@ -2171,7 +2213,7 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
         };
 
         VmaAllocationCreateInfo const bda_allocation_create_info{
-            .flags = static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT),
+            .flags = static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT),
             .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
             .requiredFlags = {},
             .preferredFlags = {},
@@ -2733,6 +2775,21 @@ auto daxa_dvc_copy_image_to_memory(daxa_Device self, daxa_ImageToMemoryCopyInfo 
 
 auto daxa_dvc_transition_image_layout(daxa_Device self, daxa_HostImageLayoutTransitionInfo const * info) -> daxa_Result
 {
+    daxa_HostImageLayoutOperationInfo new_info = {};
+    new_info.image_id = info->image_id;
+    if (info->old_image_layout == DAXA_IMAGE_LAYOUT_UNDEFINED)
+    {
+        new_info.layout_operation = DAXA_IMAGE_LAYOUT_OPERATION_TO_GENERAL;
+    }
+    if (info->new_image_layout == DAXA_IMAGE_LAYOUT_PRESENT_SRC)
+    {
+        new_info.layout_operation = DAXA_IMAGE_LAYOUT_OPERATION_TO_PRESENT_SRC;
+    }
+    return daxa_dvc_image_layout_operation(self, &new_info);
+}
+
+auto daxa_dvc_image_layout_operation(daxa_Device self, daxa_HostImageLayoutOperationInfo const * info) -> daxa_Result
+{
     if ((self->properties.implicit_features & DAXA_IMPLICIT_FEATURE_FLAG_HOST_IMAGE_COPY) == 0)
     {
         _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_EXTENSION_NOT_PRESENT, DAXA_RESULT_ERROR_EXTENSION_NOT_PRESENT);
@@ -2747,9 +2804,9 @@ auto daxa_dvc_transition_image_layout(daxa_Device self, daxa_HostImageLayoutTran
         .sType = VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT,
         .pNext = nullptr,
         .image = image.vk_image,
-        .oldLayout = static_cast<VkImageLayout>(info->old_image_layout),
-        .newLayout = static_cast<VkImageLayout>(info->new_image_layout),
-        .subresourceRange = make_subresource_range(info->image_slice, image.aspect_flags),
+        .oldLayout = info->layout_operation == DAXA_IMAGE_LAYOUT_OPERATION_TO_GENERAL ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_GENERAL,
+        .newLayout = info->layout_operation == DAXA_IMAGE_LAYOUT_OPERATION_TO_PRESENT_SRC ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_GENERAL,
+        .subresourceRange = make_subresource_range(image.view_slot.info.slice, image.aspect_flags),
     };
     auto result =  static_cast<daxa_Result>(self->vkTransitionImageLayoutEXT(self->vk_device, 1, &vk_host_image_layout_transition_info));
     _DAXA_RETURN_IF_ERROR(result, result);

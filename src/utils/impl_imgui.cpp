@@ -618,6 +618,7 @@ namespace daxa
         auto texture_staging_buffer = this->info.device.create_buffer({
             .size = static_cast<u32>(upload_size),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .name = "dear ImGui texture staging buffer",
         });
 
         u8 * staging_buffer_data = this->info.device.buffer_host_address_as<u8>(texture_staging_buffer).value();
@@ -627,8 +628,8 @@ namespace daxa
         recorder.pipeline_image_barrier({
             .src_access = daxa::AccessConsts::HOST_WRITE,
             .dst_access = daxa::AccessConsts::TRANSFER_READ_WRITE,
-            .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
             .image_id = font_sheet,
+            .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
         });
         recorder.copy_buffer_to_image({
             .buffer = texture_staging_buffer,
@@ -703,7 +704,7 @@ namespace daxa
 
 DAXA_DECL_PUSH_CONSTANT(Push, push)
 
-#if DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_VERTEX
+#if GL_VERTEX_SHADER
 
 layout(location = 0) out struct
 {
@@ -728,7 +729,7 @@ void main()
     gl_Position = vec4(aPos * push.scale + push.translate, 0, 1);
 }
 
-#elif DAXA_SHADER_STAGE == DAXA_SHADER_STAGE_FRAGMENT
+#elif GL_FRAGMENT_SHADER
 
 layout(location = 0) out daxa_f32vec4 fColor;
 layout(location = 0) in struct

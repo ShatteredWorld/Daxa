@@ -149,12 +149,12 @@ auto main() -> int
         // The platform would also be retrieved from the windowing API,
         // or by hard-coding it depending on the OS.
         .native_window_platform = native_window_platform,
-        .surface_format_selector = [](daxa::Format format)
+        .surface_format_selector = [](daxa::Format format, daxa::ColorSpace colorspace)
         {
             switch (format)
             {
             case daxa::Format::R8G8B8A8_UINT: return 100;
-            default: return daxa::default_format_score(format);
+            default: return daxa::default_format_score(format, colorspace);
             }
         },
         .present_mode = daxa::PresentMode::MAILBOX,

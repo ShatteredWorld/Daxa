@@ -7,6 +7,7 @@
 
 #include "impl_sync.hpp"
 #include "impl_device.hpp"
+#include "impl_instance.hpp"
 
 /// --- Begin Helpers ---
 
@@ -211,6 +212,7 @@ void remember_ids(daxa_CommandRecorder self, T id)
 template <typename... Args>
 auto check_ids(daxa_CommandRecorder self, Args... args) -> daxa_Result
 {
+#if DAXA_VALIDATION
     if (!(only_check_buffer(self, args) && ...))
     {
         return DAXA_RESULT_INVALID_BUFFER_ID;
@@ -235,6 +237,7 @@ auto check_ids(daxa_CommandRecorder self, Args... args) -> daxa_Result
     {
         return DAXA_RESULT_INVALID_BLAS_ID;
     }
+#endif
     return DAXA_RESULT_SUCCESS;
 }
 
@@ -667,7 +670,7 @@ auto daxa_cmd_push_constant(daxa_CommandRecorder self, daxa_PushConstantInfo con
     }
     if (current_pipeline_push_constant_size < info->size)
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_PUSHCONSTANT_RANGE_EXCEEDED, DAXA_RESULT_PUSHCONSTANT_RANGE_EXCEEDED);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_PUSH_CONSTANT_RANGE_EXCEEDED, DAXA_RESULT_PUSH_CONSTANT_RANGE_EXCEEDED);
     }
     // Always write the whole range, fill with 0xFF to the size of the push constant.
     // This makes validation and renderdoc happy as well as help debug uninitialized push constant data
@@ -1140,6 +1143,11 @@ void daxa_cmd_end_label(daxa_CommandRecorder self)
     {
         self->device->vkCmdEndDebugUtilsLabelEXT(self->current_command_data.vk_cmd_buffer);
     }
+}
+
+void daxa_cmd_reset_assumed_state(daxa_CommandRecorder self)
+{
+    self->current_pipeline = daxa_ImplCommandRecorder::NoPipeline{};
 }
 
 void daxa_cmd_flush_barriers(daxa_CommandRecorder self)

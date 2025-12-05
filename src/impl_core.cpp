@@ -432,13 +432,13 @@ auto daxa_version_of_sampler(daxa_SamplerId id) -> u64
 
 auto ImplHandle::inc_refcnt() const -> u64
 {
-    auto & mut_strong_ref = *r_cast<u64 *>(&this->strong_count);
+    auto & mut_strong_ref = this->strong_count;
     return std::atomic_ref{mut_strong_ref}.fetch_add(1, std::memory_order::relaxed);
 }
 
 auto ImplHandle::dec_refcnt(void (*zero_ref_callback)(ImplHandle const *), daxa_Instance instance) const -> u64
 {
-    auto & mut_strong_ref = *r_cast<u64 *>(&this->strong_count);
+    auto & mut_strong_ref = this->strong_count;
     auto prev = std::atomic_ref{mut_strong_ref}.fetch_sub(1, std::memory_order::relaxed);
     if (prev == 1)
     {
@@ -463,14 +463,14 @@ auto ImplHandle::get_refcnt() const -> u64
 auto ImplHandle::impl_inc_weak_refcnt([[maybe_unused]] char const * callsite) const -> u64
 {
     _DAXA_TEST_PRINT("called \"inc_weak_refcnt\" in \"%s\"\n", callsite);
-    auto & mut_weak_ref = *r_cast<u64 *>(&this->weak_count);
+    auto & mut_weak_ref = this->weak_count;
     return std::atomic_ref{mut_weak_ref}.fetch_add(1, std::memory_order::relaxed);
 }
 
 auto ImplHandle::impl_dec_weak_refcnt(void (*zero_ref_callback)(ImplHandle const *), daxa_Instance /*unused*/, [[maybe_unused]] char const * callsite) const -> u64
 {
     _DAXA_TEST_PRINT("called \"dec_weak_refcnt\" in \"%s\"\n", callsite);
-    auto & mut_weak_ref = *r_cast<u64 *>(&this->weak_count);
+    auto & mut_weak_ref = this->weak_count;
     auto prev = std::atomic_ref{mut_weak_ref}.fetch_sub(1, std::memory_order::relaxed);
     if (prev == 1)
     {
@@ -496,30 +496,43 @@ auto daxa_dvc_create_memory(daxa_Device self, daxa_MemoryBlockInfo const * info,
 {
     daxa_ImplMemoryBlock ret = {};
     ret.device = self;
-    ret.info = std::bit_cast<daxa::MemoryBlockInfo>(*info);
+    ret.info = *info;
 
     if (info->requirements.memoryTypeBits == 0)
     {
-        // TODO(capi): This should not be here, the point is to return an error!
-        // DAXA_DBG_ASSERT_TRUE_M(false, "memory_type_bits must be non zero");
-        return DAXA_RESULT_ERROR_UNKNOWN;
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_ZERO_REQUIRED_MEMORY_TYPE_BITS, DAXA_RESULT_ERROR_ZERO_REQUIRED_MEMORY_TYPE_BITS)
+    }
+
+    VkMemoryPropertyFlags required_properties = {};
+    daxa_MemoryFlags vma_allocation_flags = info->flags;
+    if (((vma_allocation_flags & DAXA_MEMORY_FLAG_HOST_ACCESS_RANDOM) != 0u) ||
+        ((vma_allocation_flags & DAXA_MEMORY_FLAG_HOST_ACCESS_SEQUENTIAL_WRITE) != 0u))
+    {
+        vma_allocation_flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        required_properties |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+
+        if ((vma_allocation_flags & DAXA_MEMORY_FLAG_HOST_ACCESS_SEQUENTIAL_WRITE) != 0u)
+        {
+            required_properties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        }
+    }
+    else
+    {
+        required_properties |= VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     }
 
     VmaAllocationCreateInfo const create_info{
-        .flags = info->flags,
-        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-        .requiredFlags = {}, // TODO: idk what this is...
+        .flags = vma_allocation_flags,
+        .usage = VMA_MEMORY_USAGE_UNKNOWN,
+        .requiredFlags = required_properties,
         .preferredFlags = {},
-        .memoryTypeBits = {}, // TODO: idk what this is....
+        .memoryTypeBits = info->requirements.memoryTypeBits,
         .pool = {},
         .pUserData = {},
         .priority = 0.5f,
     };
-    auto result = vmaAllocateMemory(self->vma_allocator, &info->requirements, &create_info, &ret.allocation, &ret.alloc_info);
-    if (result != VK_SUCCESS)
-    {
-        return std::bit_cast<daxa_Result>(result);
-    }
+    auto result = static_cast<daxa_Result>(vmaAllocateMemory(self->vma_allocator, &info->requirements, &create_info, &ret.allocation, &ret.alloc_info));
+    _DAXA_RETURN_IF_ERROR(result, result)
 
     ret.strong_count = 1;
     self->inc_weak_refcnt();
