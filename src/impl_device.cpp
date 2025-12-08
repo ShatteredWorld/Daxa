@@ -1180,14 +1180,13 @@ auto template_hot_or_slot(auto & self, auto id)
     }
     else
     {
-        return self->slot(id);
+        return self->slot(id); 
     }
 }
 
 #define _DAXA_DECL_COMMON_GP_RES_FUNCTIONS(name, Name, NAME, SLOT_NAME, vk_name, VK_NAME)                                \
     auto daxa_dvc_destroy_##name(daxa_Device self, daxa_##Name##Id id) -> daxa_Result                                    \
     {                                                                                                                    \
-        _DAXA_TEST_PRINT("STRONG daxa_dvc_destroy_%s\n", #name);                                                         \
         auto success = self->gpu_sro_table.SLOT_NAME.try_zombify(std::bit_cast<GPUResourceId>(id));                      \
         if (success)                                                                                                     \
         {                                                                                                                \
@@ -1308,7 +1307,9 @@ auto daxa_dvc_get_vk_queue(daxa_Device self, daxa_Queue queue, VkQueue* vk_queue
 
 auto daxa_dvc_wait_idle(daxa_Device self) -> daxa_Result
 {
-    return std::bit_cast<daxa_Result>(vkDeviceWaitIdle(self->vk_device));
+    auto result = std::bit_cast<daxa_Result>(vkDeviceWaitIdle(self->vk_device));
+    _DAXA_RETURN_IF_ERROR(result, result)
+    return result;
 }
 
 auto daxa_dvc_queue_wait_idle(daxa_Device self, daxa_Queue queue) -> daxa_Result
@@ -1321,7 +1322,9 @@ auto daxa_dvc_queue_wait_idle(daxa_Device self, daxa_Queue queue) -> daxa_Result
     {
         _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
     }
-    return std::bit_cast<daxa_Result>(vkQueueWaitIdle(self->get_queue(queue).vk_queue));
+    auto result = std::bit_cast<daxa_Result>(vkQueueWaitIdle(self->get_queue(queue).vk_queue));
+    _DAXA_RETURN_IF_ERROR(result, result)
+    return result;
 }
 
 auto daxa_dvc_queue_count(daxa_Device self, daxa_QueueFamily queue_family, u32 * out_value) -> daxa_Result
@@ -1360,6 +1363,9 @@ auto daxa_dvc_oldest_pending_submit_index(daxa_Device self, daxa_u64 * submit_in
 
 auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> daxa_Result
 {
+    std::array<u8, 1u << 13u /*8kib*/> stack_memory;
+    MemoryArena m_arena = MemoryArena{"daxa_dvc_submit dyn stack memory", stack_memory};
+
     if (!self->valid_queue(info->queue))
     {
         _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
@@ -1417,14 +1423,14 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
         executable_cmd_list_execute_deferred_destructions(self, commands->data);
     }
 
-    std::vector<VkCommandBuffer> submit_vk_command_buffers = {};
+    DynamicArenaArray8k<VkCommandBuffer> submit_vk_command_buffers = {&m_arena};
     for (auto const & commands : std::span{info->command_lists, info->command_list_count})
     {
         submit_vk_command_buffers.push_back(commands->data.vk_cmd_buffer);
     }
 
-    std::vector<VkSemaphore> submit_semaphore_signals = {}; // All timeline semaphores come first, then binary semaphores follow.
-    std::vector<u64> submit_semaphore_signal_values = {};   // Used for timeline semaphores. Ignored (push dummy value) for binary semaphores.
+    DynamicArenaArray8k<VkSemaphore> submit_semaphore_signals = {&m_arena}; // All timeline semaphores come first, then binary semaphores follow.
+    DynamicArenaArray8k<u64> submit_semaphore_signal_values = {&m_arena};   // Used for timeline semaphores. Ignored (push dummy value) for binary semaphores.
 
     // Add main queue timeline signaling as first timeline semaphore signaling:
     submit_semaphore_signals.push_back(queue.gpu_queue_local_timeline);
@@ -1443,9 +1449,9 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
     }
 
     // used to synchronize with previous submits:
-    std::vector<VkSemaphore> submit_semaphore_waits = {}; // All timeline semaphores come first, then binary semaphores follow.
-    std::vector<VkPipelineStageFlags> submit_semaphore_wait_stage_masks = {};
-    std::vector<u64> submit_semaphore_wait_values = {}; // Used for timeline semaphores. Ignored (push dummy value) for binary semaphores.
+    DynamicArenaArray8k<VkSemaphore> submit_semaphore_waits = {&m_arena}; // All timeline semaphores come first, then binary semaphores follow.
+    DynamicArenaArray8k<VkPipelineStageFlags> submit_semaphore_wait_stage_masks = {&m_arena};
+    DynamicArenaArray8k<u64> submit_semaphore_wait_values = {&m_arena}; // Used for timeline semaphores. Ignored (push dummy value) for binary semaphores.
 
     for (auto const & pair : std::span{info->wait_timeline_semaphores, info->wait_timeline_semaphore_count})
     {
@@ -1465,26 +1471,24 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
         .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
         .waitSemaphoreValueCount = static_cast<u32>(submit_semaphore_wait_values.size()),
-        .pWaitSemaphoreValues = submit_semaphore_wait_values.data(),
+        .pWaitSemaphoreValues = submit_semaphore_wait_values.clone_to_contiguous().data(),
         .signalSemaphoreValueCount = static_cast<u32>(submit_semaphore_signal_values.size()),
-        .pSignalSemaphoreValues = submit_semaphore_signal_values.data(),
+        .pSignalSemaphoreValues = submit_semaphore_signal_values.clone_to_contiguous().data(),
     };
 
     VkSubmitInfo const vk_submit_info{
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
         .pNext = r_cast<void *>(&timeline_info),
         .waitSemaphoreCount = static_cast<u32>(submit_semaphore_waits.size()),
-        .pWaitSemaphores = submit_semaphore_waits.data(),
-        .pWaitDstStageMask = submit_semaphore_wait_stage_masks.data(),
+        .pWaitSemaphores = submit_semaphore_waits.clone_to_contiguous().data(),
+        .pWaitDstStageMask = submit_semaphore_wait_stage_masks.clone_to_contiguous().data(),
         .commandBufferCount = static_cast<u32>(submit_vk_command_buffers.size()),
-        .pCommandBuffers = submit_vk_command_buffers.data(),
+        .pCommandBuffers = submit_vk_command_buffers.clone_to_contiguous().data(),
         .signalSemaphoreCount = static_cast<u32>(submit_semaphore_signals.size()),
-        .pSignalSemaphores = submit_semaphore_signals.data(),
+        .pSignalSemaphores = submit_semaphore_signals.clone_to_contiguous().data(),
     };
     auto result = static_cast<daxa_Result>(vkQueueSubmit(queue.vk_queue, 1, &vk_submit_info, VK_NULL_HANDLE));
     _DAXA_RETURN_IF_ERROR(result, result)
-
-    std::unique_lock const lock{self->zombies_mtx};
 
     return DAXA_RESULT_SUCCESS;
 }
@@ -1519,7 +1523,8 @@ auto daxa_dvc_present(daxa_Device self, daxa_PresentInfo const * info) -> daxa_R
     };
 
     auto result = static_cast<daxa_Result>(vkQueuePresentKHR(self->get_queue(info->queue).vk_queue, &present_info));
-    return std::bit_cast<daxa_Result>(result);
+    _DAXA_RETURN_IF_ERROR(result, result)
+    return result;
 }
 
 auto daxa_dvc_collect_garbage(daxa_Device self) -> daxa_Result
@@ -1644,13 +1649,11 @@ auto daxa_dvc_properties(daxa_Device device) -> daxa_DeviceProperties const *
 
 auto daxa_dvc_inc_refcnt(daxa_Device self) -> u64
 {
-    _DAXA_TEST_PRINT("device inc refcnt from %u to %u\n", self->strong_count, self->strong_count + 1);
     return self->inc_refcnt();
 }
 
 auto daxa_dvc_dec_refcnt(daxa_Device self) -> u64
 {
-    _DAXA_TEST_PRINT("device dec refcnt from %u to %u\n", self->strong_count, self->strong_count - 1);
     return self->dec_refcnt(
         &daxa_ImplDevice::zero_ref_callback,
         self->instance);
@@ -2213,7 +2216,7 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
         };
 
         VmaAllocationCreateInfo const bda_allocation_create_info{
-            .flags = static_cast<VmaAllocationCreateFlags>(VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT),
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
             .requiredFlags = {},
             .preferredFlags = {},
@@ -2223,10 +2226,11 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
             .priority = 0.5f,
         };
 
-        result = static_cast<daxa_Result>(vmaCreateBuffer(self->vma_allocator, &bda_buffer_create_info, &bda_allocation_create_info, &self->buffer_device_address_buffer, &self->buffer_device_address_buffer_allocation, nullptr));
-        _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_BDA_BUFFER)
-        result = static_cast<daxa_Result>(vmaMapMemory(self->vma_allocator, self->buffer_device_address_buffer_allocation, r_cast<void **>(&self->buffer_device_address_buffer_host_ptr)));
-        _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_BDA_BUFFER)
+        VmaAllocationInfo bda_allocation_vma_allocation_info = {};
+        result = static_cast<daxa_Result>(vmaCreateBuffer(self->vma_allocator, &bda_buffer_create_info, &bda_allocation_create_info, &self->buffer_device_address_buffer, &self->buffer_device_address_buffer_allocation, &bda_allocation_vma_allocation_info));
+        _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_BDA_BUFFER);
+
+        self->buffer_device_address_buffer_host_ptr = static_cast<u64*>(bda_allocation_vma_allocation_info.pMappedData);
     }
 
     // Set debug names:
@@ -2478,7 +2482,6 @@ void daxa_ImplDevice::cleanup_buffer(BufferId id)
 
 void daxa_ImplDevice::cleanup_image(ImageId id)
 {
-    _DAXA_TEST_PRINT("cleanup image\n");
     auto gid = std::bit_cast<GPUResourceId>(id);
     ImplImageSlot const & image_slot = gpu_sro_table.image_slots.unsafe_get(gid);
     {
@@ -2609,7 +2612,6 @@ auto daxa_ImplDevice::hot_slot(daxa_BlasId id) const -> ImplBlasSlot::HotData co
 
 void daxa_ImplDevice::zero_ref_callback(ImplHandle const * handle)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zero_ref_callback\n");
     auto self = rc_cast<daxa_Device>(handle);
     auto result = daxa_dvc_wait_idle(self);
     DAXA_DBG_ASSERT_TRUE_M(result == DAXA_RESULT_SUCCESS, "failed to wait idle");
@@ -2619,7 +2621,6 @@ void daxa_ImplDevice::zero_ref_callback(ImplHandle const * handle)
     {
         pool_pool.cleanup(self);
     }
-    vmaUnmapMemory(self->vma_allocator, self->buffer_device_address_buffer_allocation);
     vmaDestroyBuffer(self->vma_allocator, self->buffer_device_address_buffer, self->buffer_device_address_buffer_allocation);
     self->gpu_sro_table.cleanup(self->vk_device);
     vmaDestroyImage(self->vma_allocator, self->vk_null_image, self->vk_null_image_vma_allocation);
@@ -2667,37 +2668,31 @@ void zombiefy(daxa_Device self, T id, auto & slots, auto & zombies)
 
 void daxa_ImplDevice::zombify_buffer(BufferId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_buffer\n");
     zombiefy(this, id, gpu_sro_table.buffer_slots, this->buffer_zombies);
 }
 
 void daxa_ImplDevice::zombify_image(ImageId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_image (%i,%i)\n", id.index, id.version);
     zombiefy(this, id, gpu_sro_table.image_slots, this->image_zombies);
 }
 
 void daxa_ImplDevice::zombify_image_view(ImageViewId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_image_view\n");
     zombiefy(this, id, gpu_sro_table.image_slots, this->image_view_zombies);
 }
 
 void daxa_ImplDevice::zombify_sampler(SamplerId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_sampler\n");
     zombiefy(this, id, gpu_sro_table.sampler_slots, this->sampler_zombies);
 }
 
 void daxa_ImplDevice::zombify_tlas(TlasId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_tlas\n");
     zombiefy(this, id, gpu_sro_table.tlas_slots, this->tlas_zombies);
 }
 
 void daxa_ImplDevice::zombify_blas(BlasId id)
 {
-    _DAXA_TEST_PRINT("daxa_ImplDevice::zombify_blas\n");
     zombiefy(this, id, gpu_sro_table.blas_slots, this->blas_zombies);
 }
 
@@ -2732,7 +2727,7 @@ auto daxa_dvc_copy_memory_to_image(daxa_Device self, daxa_MemoryToImageCopyInfo 
         .regionCount = 1,
         .pRegions = &vk_memory_to_image_copy,
     };
-    auto result =  static_cast<daxa_Result>(self->vkCopyMemoryToImageEXT(self->vk_device, &vk_memory_to_image_copy_ext));
+    auto result = static_cast<daxa_Result>(self->vkCopyMemoryToImageEXT(self->vk_device, &vk_memory_to_image_copy_ext));
     _DAXA_RETURN_IF_ERROR(result, result);
     return DAXA_RESULT_SUCCESS;
 }
@@ -2768,7 +2763,7 @@ auto daxa_dvc_copy_image_to_memory(daxa_Device self, daxa_ImageToMemoryCopyInfo 
         .regionCount = 1,
         .pRegions = &vk_image_to_memory_copy,
     };
-    auto result =  static_cast<daxa_Result>(self->vkCopyImageToMemoryEXT(self->vk_device, &vk_image_to_memory_copy_ext));
+    auto result = static_cast<daxa_Result>(self->vkCopyImageToMemoryEXT(self->vk_device, &vk_image_to_memory_copy_ext));
     _DAXA_RETURN_IF_ERROR(result, result);
     return result;
 }

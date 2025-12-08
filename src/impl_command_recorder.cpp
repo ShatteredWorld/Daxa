@@ -525,7 +525,7 @@ auto daxa_cmd_clear_image(daxa_CommandRecorder self, daxa_ImageClearInfo const *
 
 void daxa_cmd_pipeline_barrier(daxa_CommandRecorder self, daxa_BarrierInfo const * info)
 {
-    if (self->memory_barrier_batch_count == COMMAND_LIST_BARRIER_MAX_BATCH_SIZE)
+    if (self->memory_barrier_batch_count == COMMAND_RECORDER_BARRIER_MAX_BATCH_SIZE)
     {
         daxa_cmd_flush_barriers(self);
     }
@@ -542,7 +542,7 @@ void daxa_cmd_pipeline_barrier(daxa_CommandRecorder self, daxa_BarrierInfo const
 auto daxa_cmd_pipeline_image_barrier(daxa_CommandRecorder self, daxa_ImageBarrierInfo const * info) -> daxa_Result
 {
     DAXA_CHECK_AND_REMEMBER_IDS(self, info->image_id)
-    if (self->image_barrier_batch_count == COMMAND_LIST_BARRIER_MAX_BATCH_SIZE)
+    if (self->image_barrier_batch_count == COMMAND_RECORDER_BARRIER_MAX_BATCH_SIZE)
     {
         daxa_cmd_flush_barriers(self);
     }
@@ -649,7 +649,7 @@ auto daxa_cmd_push_constant(daxa_CommandRecorder self, daxa_PushConstantInfo con
     daxa_cmd_flush_barriers(self);
     if (daxa::holds_alternative<daxa_ImplCommandRecorder::NoPipeline>(self->current_pipeline))
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_PIPELINE_BOUND, DAXA_RESULT_NO_PIPELINE_BOUND);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_PIPELINE_SET, DAXA_RESULT_NO_PIPELINE_SET);
     }
     VkPipelineLayout vk_pipeline_layout = {};
     u32 current_pipeline_push_constant_size = {};
@@ -739,7 +739,7 @@ auto daxa_cmd_trace_rays(daxa_CommandRecorder self, daxa_TraceRaysInfo const * i
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_RayTracingPipeline>(self->current_pipeline))
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_RAYTRACING_PIPELINE_BOUND, DAXA_RESULT_NO_RAYTRACING_PIPELINE_BOUND);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_RAYTRACING_PIPELINE_SET, DAXA_RESULT_NO_RAYTRACING_PIPELINE_SET);
     }
     auto const & binding_table = info->shader_binding_table;
     auto raygen_handle = binding_table.raygen_region;
@@ -768,7 +768,7 @@ auto daxa_cmd_trace_rays_indirect(daxa_CommandRecorder self, daxa_TraceRaysIndir
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_RayTracingPipeline>(self->current_pipeline))
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_RAYTRACING_PIPELINE_BOUND, DAXA_RESULT_NO_RAYTRACING_PIPELINE_BOUND);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_RAYTRACING_PIPELINE_SET, DAXA_RESULT_NO_RAYTRACING_PIPELINE_SET);
     }
     auto const & binding_table = info->shader_binding_table;
     auto raygen_handle = binding_table.raygen_region;
@@ -797,7 +797,7 @@ auto daxa_cmd_dispatch(daxa_CommandRecorder self, daxa_DispatchInfo const * info
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_ComputePipeline>(self->current_pipeline))
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_COMPUTE_PIPELINE_BOUND, DAXA_RESULT_NO_COMPUTE_PIPELINE_BOUND);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_COMPUTE_PIPELINE_SET, DAXA_RESULT_NO_COMPUTE_PIPELINE_SET);
     }
     vkCmdDispatch(self->current_command_data.vk_cmd_buffer, info->x, info->y, info->z);
     return DAXA_RESULT_SUCCESS;
@@ -811,7 +811,7 @@ auto daxa_cmd_dispatch_indirect(daxa_CommandRecorder self, daxa_DispatchIndirect
     DAXA_CHECK_AND_REMEMBER_IDS(self, info->indirect_buffer)
     if (!daxa::holds_alternative<daxa_ComputePipeline>(self->current_pipeline))
     {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_COMPUTE_PIPELINE_BOUND, DAXA_RESULT_NO_COMPUTE_PIPELINE_BOUND);
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_NO_COMPUTE_PIPELINE_SET, DAXA_RESULT_NO_COMPUTE_PIPELINE_SET);
     }
     vkCmdDispatchIndirect(self->current_command_data.vk_cmd_buffer, self->device->hot_slot(info->indirect_buffer).vk_buffer, info->offset);
     return DAXA_RESULT_SUCCESS;
@@ -1178,17 +1178,14 @@ auto daxa_cmd_complete_current_commands(
     daxa_ExecutableCommandList * out_executable_cmds) -> daxa_Result
 {
     daxa_cmd_flush_barriers(self);
-    auto vk_result = vkEndCommandBuffer(self->current_command_data.vk_cmd_buffer);
-    if (vk_result != VK_SUCCESS)
-    {
-        return std::bit_cast<daxa_Result>(vk_result);
-    }
+    auto result = static_cast<daxa_Result>(vkEndCommandBuffer(self->current_command_data.vk_cmd_buffer));
+    _DAXA_RETURN_IF_ERROR(result, result);
     auto cmd_data = std::move(self->current_command_data);
-    auto result = self->generate_new_current_command_data();
+    result = self->generate_new_current_command_data();
     if (result != DAXA_RESULT_SUCCESS)
     {
         self->current_command_data = std::move(cmd_data);
-        return result;
+        _DAXA_RETURN_IF_ERROR(result, result);
     }
     *out_executable_cmds = new daxa_ImplExecutableCommandList{
         .cmd_recorder = self,
@@ -1216,7 +1213,8 @@ auto daxa_cmd_get_vk_command_pool(daxa_CommandRecorder self) -> VkCommandPool
 
 void daxa_destroy_command_recorder(daxa_CommandRecorder self)
 {
-    self->device->gpu_sro_table.lifetime_lock.unlock_shared();
+    // CAUSED UB: EASILY CAUSED RECURSIVE SHARED LOCKING WHEN CALLING COLLECT GARBAGE OR SUBMIT WHILE THE THREAD OWNS AN ALIVE CMD RECORDER. THIS IS ILLEGAL IN C++!
+    // self->device->gpu_sro_table.lifetime_lock.unlock_shared();
     self->dec_refcnt(
         daxa_ImplCommandRecorder::zero_ref_callback,
         self->device->instance);
@@ -1238,7 +1236,7 @@ auto daxa_dvc_create_command_recorder(daxa_Device device, daxa_CommandRecorderIn
     {
         std::unique_lock lock{device->command_pool_pools[info->queue_family].mtx};
         device->command_pool_pools[info->queue_family].put_back(vk_cmd_pool);
-        return result;
+        _DAXA_RETURN_IF_ERROR(result, result);
     }
     if ((ret.device->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && ret.info.name.size != 0)
     {
@@ -1252,8 +1250,8 @@ auto daxa_dvc_create_command_recorder(daxa_Device device, daxa_CommandRecorderIn
         };
         ret.device->vkSetDebugUtilsObjectNameEXT(ret.device->vk_device, &cmd_pool_name_info);
     }
-    // TODO(lifetime): Maybe we should have a try lock variant?
-    ret.device->gpu_sro_table.lifetime_lock.lock_shared();
+    // CAUSED UB: EASILY CAUSED RECURSIVE SHARED LOCKING WHEN CALLING COLLECT GARBAGE OR SUBMIT WHILE THE THREAD OWNS AN ALIVE CMD RECORDER. THIS IS ILLEGAL IN C++!
+    // ret.device->gpu_sro_table.lifetime_lock.lock_shared();
     ret.strong_count = 1;
     device->inc_weak_refcnt();
     *out_cmd_list = new daxa_ImplCommandRecorder{};
@@ -1288,11 +1286,7 @@ void executable_cmd_list_execute_deferred_destructions(daxa_Device device, Execu
         case DEFERRED_DESTRUCTION_BUFFER_INDEX: _ignore = daxa_dvc_destroy_buffer(device, std::bit_cast<daxa_BufferId>(id)); break;
         case DEFERRED_DESTRUCTION_IMAGE_INDEX: _ignore = daxa_dvc_destroy_image(device, std::bit_cast<daxa_ImageId>(id)); break;
         case DEFERRED_DESTRUCTION_IMAGE_VIEW_INDEX: _ignore = daxa_dvc_destroy_image_view(device, std::bit_cast<daxa_ImageViewId>(id)); break;
-        case DEFERRED_DESTRUCTION_SAMPLER_INDEX:
-            _ignore = daxa_dvc_destroy_sampler(device, std::bit_cast<daxa_SamplerId>(id));
-            break;
-            // TODO(capi): DO NOT THROW FROM A C FUNCTION
-            // default: DAXA_DBG_ASSERT_TRUE_M(false, "unreachable");
+        case DEFERRED_DESTRUCTION_SAMPLER_INDEX: _ignore = daxa_dvc_destroy_sampler(device, std::bit_cast<daxa_SamplerId>(id)); break;
         }
     }
     cmd_list.deferred_destructions.clear();
@@ -1307,22 +1301,16 @@ auto daxa_ImplCommandRecorder::generate_new_current_command_data() -> daxa_Resul
         .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
         .commandBufferCount = 1,
     };
-    auto vk_result = vkAllocateCommandBuffers(this->device->vk_device, &vk_command_buffer_allocate_info, &this->current_command_data.vk_cmd_buffer);
-    if (vk_result != VK_SUCCESS)
-    {
-        return std::bit_cast<daxa_Result>(vk_result);
-    }
+    auto result = static_cast<daxa_Result>(vkAllocateCommandBuffers(this->device->vk_device, &vk_command_buffer_allocate_info, &this->current_command_data.vk_cmd_buffer));
+    _DAXA_RETURN_IF_ERROR(result, result);
     VkCommandBufferBeginInfo const vk_command_buffer_begin_info{
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
         .pNext = nullptr,
         .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
         .pInheritanceInfo = {},
     };
-    vk_result = vkBeginCommandBuffer(this->current_command_data.vk_cmd_buffer, &vk_command_buffer_begin_info);
-    if (vk_result != VK_SUCCESS)
-    {
-        return std::bit_cast<daxa_Result>(vk_result);
-    }
+    result = static_cast<daxa_Result>(vkBeginCommandBuffer(this->current_command_data.vk_cmd_buffer, &vk_command_buffer_begin_info));
+    _DAXA_RETURN_IF_ERROR(result, result);
     this->allocated_command_buffers.push_back(this->current_command_data.vk_cmd_buffer);
     this->current_command_data.used_buffers.reserve(12);
     this->current_command_data.used_images.reserve(12);
@@ -1335,7 +1323,7 @@ void daxa_ImplCommandRecorder::zero_ref_callback(ImplHandle const * handle)
 {
     auto * self = rc_cast<daxa_CommandRecorder>(handle);
     u64 const submit_timeline = self->device->global_submit_timeline.load(std::memory_order::relaxed);
-    std::unique_lock const lock{self->device->zombies_mtx};
+    std::unique_lock const lock{self->device->zombies_mtx}; // lock is recursive
     executable_cmd_list_execute_deferred_destructions(self->device, self->current_command_data);
     self->device->command_list_zombies.emplace_front(
         submit_timeline,
