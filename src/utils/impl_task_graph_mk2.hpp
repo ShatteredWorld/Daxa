@@ -101,37 +101,67 @@ namespace daxa
         daxa::MemoryRequirements memory_requirements = {};
     };
 
-    enum struct ImplTaskBufferKind
+    struct ImplTask;
+
+    struct TaskAttachmentAccess
+    {
+        ImplTask* task = {};
+        u32 task_index = {};
+        u32 attachment_index = {};
+    };
+
+    struct AccessGroup
+    {
+        TaskAccessType type = {};
+        u32 used_queues_bitfield = {};
+        std::span<TaskAttachmentAccess> tasks = {};
+    };
+
+    enum struct TaskResourceKind
     {
         BUFFER,
         TLAS,
-        BLAS
+        BLAS,
+        IMAGE
     };
 
-    static constexpr inline u32 INVALID_EXTERNAL_ARRAY_INDEX = ~0u;
-
-    struct ImplTaskBuffer
+    struct ImplTaskResource
     {
-        ImplTaskBufferKind kind = ImplTaskBufferKind::BUFFER;
-        u32 external_array_index = INVALID_EXTERNAL_ARRAY_INDEX;    // points to external_buffer_array.
-
-        GPUResourceId id = {};                                      // buffer, blas or tlas id
-        usize size = {};
         std::string_view name = {};
-    };
 
-    struct ImplTaskImage
-    {
-        u32 external_array_index = INVALID_EXTERNAL_ARRAY_INDEX;    // points to external_image_array.
+        TaskResourceKind kind = {};
+        ImplHandle const* external = {};
 
-        ImageId id = {};
-        u32 dimensions = {};
-        Format format = {};
-        Extent3D size = {0, 0, 0};
-        u32 mip_level_count = {};
-        u32 array_layer_count = {};
-        u32 sample_count = {};
-        std::string_view name = {};
+        std::span<AccessGroup> access_timeline = {};
+
+        u32 final_schedule_first_batch = {};
+        u32 final_schedule_last_batch = {};
+
+        union {
+            BufferId buffer;
+            TlasId tlas;
+            BlasId blas;
+            ImageId image;
+        } id;
+
+        union {
+            struct
+            {
+                usize size;
+            } buffer;
+            struct
+            {
+                ImageCreateFlags flags = {};
+                u32 dimensions = {};
+                Format format = {};
+                Extent3D size = {0, 0, 0};
+                u32 mip_level_count = {};
+                u32 array_layer_count = {};
+                u32 sample_count = {};
+                SharingMode sharing_mode = {};
+                ImageUsageFlags usage = {};
+            } image;
+        } info;
     };
 
     struct ExtendedImageSliceState
@@ -196,16 +226,19 @@ namespace daxa
     // Create all image views for persistent and transient images when allocating and creating them with the taskgraph.
     struct ImplTask
     {
-        void (*task_callback)(daxa::TaskInterface, void*) = {};
-        u64* task_callback_memory = {};                             // holds captured variables
-        std::span<TaskAttachmentInfo> attachments = {};
-        u32 attachment_shader_blob_size = {};
-        u32 attachment_shader_blob_alignment = {};
-        TaskType task_type = {};
-        std::string_view name = {};
-        Queue queue = {};
-        std::span<std::span<ImageViewId>> image_view_cache = {};
-        std::span<ImageId> runtime_images_last_execution = {};      // Used to verify image view cache
+        std::string_view name = {};                                 
+        void (*task_callback)(daxa::TaskInterface, void*) = {};     
+        u64* task_callback_memory = {};                             // holds callback captured variables
+        std::span<TaskAttachmentInfo> attachments = {};             
+        std::span<AccessGroup*> attachment_access_groups = {};      // set when compiling
+        u32 attachment_shader_blob_size = {};                       
+        u32 attachment_shader_blob_alignment = {};                  
+        TaskType task_type = {};                                    
+        Queue queue = {};        
+        u32 submit_index = {};                                   
+        std::span<std::span<ImageViewId>> image_view_cache = {};    // set when executing
+        std::span<ImageId> runtime_images_last_execution = {};      // set when executing // Used to verify image view cache
+        u32 final_schedule_batch = {};
     };
 
     struct ImplPresentInfo
@@ -243,6 +276,10 @@ namespace daxa
 
     struct ImplTaskGraph;
 
+    // Used to allocate id - because all persistent resources have unique id we need a single point
+    // from which they are generated
+    static inline std::atomic_uint32_t exec_unique_resource_next_index = 1;
+
     struct ImplPersistentTaskBufferBlasTlas final : ImplHandle
     {
         ImplPersistentTaskBufferBlasTlas(TaskBufferInfo a_info);
@@ -270,7 +307,6 @@ namespace daxa
 
         // Used to allocate id - because all persistent resources have unique id we need a single point
         // from which they are generated
-        static inline std::atomic_uint32_t exec_unique_next_index = 1;
         u32 unique_index = std::numeric_limits<u32>::max();
 
         static void zero_ref_callback(ImplHandle const * handle);
@@ -290,9 +326,6 @@ namespace daxa
         // Only for swapchain images. Runtime data.
         bool waited_on_acquire = {};
 
-        // Used to allocate id - because all persistent resources have unique id we need a single point
-        // from which they are generated
-        static inline std::atomic_uint32_t exec_unique_next_index = 1;
         u32 unique_index = std::numeric_limits<u32>::max();
 
         static void zero_ref_callback(ImplHandle const * handle);
@@ -389,28 +422,30 @@ namespace daxa
         std::optional<BinarySemaphore> last_submit_semaphore = {};
     };
 
+    struct TasksSubmit
+    {
+        u32 first_task = {};
+        u32 task_count = {};
+        u32 used_queues_bitfield = {};  // set when compiling
+    };
+
     struct ImplTaskGraph final : ImplHandle
     {
-        ImplTaskGraph(TaskGraphInfo a_info);
+        ImplTaskGraph(TaskGraphInfo a_info); 
         ~ImplTaskGraph();
 
         static inline std::atomic_uint32_t exec_unique_next_index = 1;
         u32 unique_index = {};
-
         TaskGraphInfo info;
-
         MemoryArena task_memory = {};
 
         ArenaDynamicArray8k<ImplTask> tasks = {};
-        ArenaDynamicArray8k<ImplTaskBuffer> buffers = {};
-        ArenaDynamicArray8k<ImplTaskImage> images = {};
-        std::unordered_map<std::string_view, u32> buffer_name_to_index = {};    // unique buffer name -> local id into buffers.
-        std::unordered_map<std::string_view, u32> image_name_to_index = {};     // unique image name -> local id into images;
-        std::unordered_map<u32, u32> external_buffer_translation_table = {};    // global unique external id -> local id into buffers.
-        std::unordered_map<u32, u32> external_image_translation_table = {};     // global unique external id -> local id into images.
-        std::vector<TaskBuffer> external_buffer_array = {};                     // holds list of all external buffers
-        std::vector<TaskImage> external_image_array = {};                       // holds list of all external images
+        ArenaDynamicArray8k<ImplTaskResource> resources = {};
+        std::unordered_map<std::string_view, std::pair<ImplTaskResource*, u32>> name_to_resource_table = {}; // unique buffer name -> local id into buffers.
+        std::unordered_map<u32, std::pair<ImplTaskResource*, u32>> external_idx_to_resource_table = {};      // global unique external id -> local id into buffers.
+        daxa::MemoryBlock transient_memory_block = {};
 
+        ArenaDynamicArray8k<TasksSubmit> submits = {};
 
 
         // persistent information:

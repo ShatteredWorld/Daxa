@@ -3,8 +3,8 @@
 #include "common.hpp"
 DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(ExampleTaskHead)
 DAXA_TH_BUFFER(READ, buffer0)
-DAXA_TH_IMAGE(SAMPLED, REGULAR_2D, image0)
-DAXA_TH_IMAGE(SAMPLED, REGULAR_2D, image1)
+DAXA_TH_IMAGE(READ, REGULAR_2D, image0)
+DAXA_TH_IMAGE(READ, REGULAR_2D, image1)
 DAXA_TH_BUFFER(READ, test_buffer_no_shader)
 DAXA_DECL_TASK_HEAD_END
 
@@ -247,7 +247,7 @@ namespace tests
         auto timg_view_l1 = task_image.layers(1);
         task_graph.add_task(
             daxa::InlineTask::Compute("read image array layer 1")
-                .samples(timg_view_l1)
+                .reads(timg_view_l1)
                 .executes([](daxa::TaskInterface) {}));
         task_graph.complete({});
         task_graph.execute({});
@@ -325,7 +325,7 @@ namespace tests
             // CREATE IMAGE
             task_graph.use_persistent_image(task_image);
             task_graph.add_task(daxa::InlineTask::Compute("read image layer 1")
-                                    .samples(task_image.view().layers(1))
+                                    .reads(task_image.view().layers(1))
                                     .executes([](daxa::TaskInterface) {}));
             task_graph.add_task(daxa::InlineTask::Compute("write image layer 1")
                                     .writes(task_image.view().layers(0))
@@ -383,8 +383,8 @@ namespace tests
 
             task_graph.use_persistent_image(task_image);
 
-            task_graph.add_task(daxa::InlineTask::Compute("samples image layer 1")
-                                    .samples(task_image.view().layers(1))
+            task_graph.add_task(daxa::InlineTask::Compute("reads image layer 1")
+                                    .reads(task_image.view().layers(1))
                                     .executes([](daxa::TaskInterface) {}));
 
             task_graph.add_task(daxa::InlineTask::Compute("write image layer 3")
@@ -396,7 +396,7 @@ namespace tests
                                     .executes([](daxa::TaskInterface) {}));
 
             task_graph.add_task(daxa::InlineTask::Compute("read image layer 0 - 3")
-                                    .samples(task_image.view().layers(0, 4))
+                                    .reads(task_image.view().layers(0, 4))
                                     .executes([](daxa::TaskInterface) {}));
 
             task_graph.complete({});
@@ -953,7 +953,7 @@ namespace tests
 
         task_graph.add_task(
             daxa::InlineTask::Compute("read image 1")
-                .samples(task_image)
+                .reads(task_image)
                 .executes([](daxa::TaskInterface) {}));
 
         task_graph.complete({});
