@@ -118,6 +118,13 @@ auto daxa_ImplDevice::ImplQueue::get_oldest_pending_submit(VkDevice a_vk_device,
         auto result = static_cast<daxa_Result>(vkGetSemaphoreCounterValue(a_vk_device, this->gpu_queue_local_timeline, &latest_gpu));
         _DAXA_RETURN_IF_ERROR(result, result);
 
+        // WORKAROUND
+        // AMD RDNA4 drivers sometimes return 0xFF.. instead of returning device lost.
+        if (latest_gpu == 0xFFFFFFFFFFFFFFFF) 
+        {
+            _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_DEVICE_LOST, DAXA_RESULT_ERROR_DEVICE_LOST);
+        }
+
         u64 latest_cpu = this->latest_pending_submit_timeline_value.load(std::memory_order::acquire);
 
         bool const cpu_ahead_of_gpu = latest_cpu > latest_gpu;
@@ -265,13 +272,12 @@ auto create_buffer_helper(daxa_Device self, daxa_BufferInfo const * info, daxa_B
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE &&
         info->name.size != 0)
     {
-        auto c_str_arr = r_cast<SmallString const *>(&info->name)->c_str();
         VkDebugUtilsObjectNameInfoEXT const buffer_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_BUFFER,
             .objectHandle = std::bit_cast<uint64_t>(hot_data.vk_buffer),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = info->name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &buffer_name_info);
     }
@@ -431,13 +437,12 @@ auto create_image_helper(daxa_Device self, daxa_ImageInfo const * info, daxa_Ima
 
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && info->name.size != 0)
     {
-        auto c_str_arr = r_cast<SmallString const *>(&info->name)->c_str();
         VkDebugUtilsObjectNameInfoEXT const swapchain_image_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_IMAGE,
             .objectHandle = std::bit_cast<uint64_t>(ret.vk_image),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = info->name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &swapchain_image_name_info);
 
@@ -446,7 +451,7 @@ auto create_image_helper(daxa_Device self, daxa_ImageInfo const * info, daxa_Ima
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_IMAGE_VIEW,
             .objectHandle = std::bit_cast<uint64_t>(ret.view_slot.vk_image_view),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = info->name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &swapchain_image_view_name_info);
     }
@@ -472,7 +477,8 @@ auto create_acceleration_structure_helper(
     auto const & info,
     daxa_BufferId const * buffer,
     u64 const * offset,
-    auto * out_id) -> daxa_Result
+    auto * out_id,
+    bool owns_buffer_external = false) -> daxa_Result
 {
     daxa_Result result = DAXA_RESULT_SUCCESS;
     // --- Begin Parameter Validation ---
@@ -511,7 +517,7 @@ auto create_acceleration_structure_helper(
     {
         ret.buffer_id = std::bit_cast<daxa::BufferId>(*buffer);
         ret.offset = *offset;
-        ret.owns_buffer = false;
+        ret.owns_buffer = owns_buffer_external;
     }
     else
     {
@@ -560,13 +566,12 @@ auto create_acceleration_structure_helper(
 
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && ret.info.name.size != 0)
     {
-        auto c_str_arr = r_cast<SmallString const *>(&ret.info.name)->c_str();
         VkDebugUtilsObjectNameInfoEXT const swapchain_image_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_ACCELERATION_STRUCTURE_KHR,
             .objectHandle = std::bit_cast<uint64_t>(hot_data.vk_acceleration_structure),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = ret.info.name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &swapchain_image_name_info);
     }
@@ -944,6 +949,34 @@ auto daxa_dvc_create_buffer_from_memory_block(daxa_Device self, daxa_MemoryBlock
     return create_buffer_helper(self, &info->buffer_info, out_id, *info->memory_block, info->offset);
 }
 
+auto daxa_dvc_create_tlas_from_memory_block(daxa_Device self, daxa_MemoryBlockTlasInfo const * info, daxa_TlasId * out_id) -> daxa_Result
+{
+    auto buffer_info = daxa_BufferInfo{
+        .size = info->tlas_info.size,
+        .name = info->tlas_info.name,
+    };
+    daxa_BufferId buffer = {};
+    daxa_Result result = create_buffer_helper(self, &buffer_info, &buffer, *info->memory_block, info->offset);
+    _DAXA_RETURN_IF_ERROR(result, result);
+
+    auto buffer_tlas_info = daxa_BufferTlasInfo{
+        .tlas_info = info->tlas_info,
+        .buffer_id = buffer,
+        .offset = {},
+    };
+    u64 const buffer_offset = 0u; // the offset is used for sub allocating the memory block, the tlas is the whole buffer
+    return create_acceleration_structure_helper(
+        self,
+        self->gpu_sro_table.tlas_slots,
+        VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR,
+        info->tlas_info,
+        &buffer,
+        &buffer_offset, 
+        out_id,
+        true
+    );
+}
+
 auto daxa_dvc_create_image_from_block(daxa_Device self, daxa_MemoryBlockImageInfo const * info, daxa_ImageId * out_id) -> daxa_Result
 {
     return create_image_helper(self, &info->image_info, out_id, *info->memory_block, info->offset);
@@ -1063,13 +1096,12 @@ auto daxa_dvc_create_image_view(daxa_Device self, daxa_ImageViewInfo const * inf
     _DAXA_RETURN_IF_ERROR(result, DAXA_RESULT_FAILED_TO_CREATE_IMAGE_VIEW);
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && info->name.size != 0)
     {
-        auto c_str_arr = r_cast<SmallString const *>(&info->name)->c_str();
         VkDebugUtilsObjectNameInfoEXT const name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_IMAGE_VIEW,
             .objectHandle = std::bit_cast<uint64_t>(ret.vk_image_view),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = info->name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &name_info);
     }
@@ -1151,13 +1183,12 @@ auto daxa_dvc_create_sampler(daxa_Device self, daxa_SamplerInfo const * info, da
 
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && info->name.size != 0)
     {
-        auto c_str_arr = r_cast<SmallString const *>(&info->name)->c_str();
         VkDebugUtilsObjectNameInfoEXT const sampler_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_SAMPLER,
             .objectHandle = std::bit_cast<uint64_t>(ret.vk_sampler),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = info->name.data,
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &sampler_name_info);
     }
@@ -1307,7 +1338,25 @@ auto daxa_dvc_get_vk_queue(daxa_Device self, daxa_Queue queue, VkQueue* vk_queue
 
 auto daxa_dvc_wait_idle(daxa_Device self) -> daxa_Result
 {
+    for (u32 queue_i = 0; queue_i < static_cast<u32>(self->queues.size()); ++queue_i)
+    {
+        if (self->queues[queue_i].vk_queue != VK_NULL_HANDLE)
+        {
+            self->queues[queue_i].mtx.lock();
+        }
+    }
+
     auto result = std::bit_cast<daxa_Result>(vkDeviceWaitIdle(self->vk_device));
+
+    for (u32 reverse_i = static_cast<u32>(self->queues.size()); reverse_i > 0; --reverse_i)
+    {
+        u32 const queue_i = reverse_i - 1;
+        if (self->queues[queue_i].vk_queue != VK_NULL_HANDLE)
+        {
+            self->queues[queue_i].mtx.unlock();
+        }
+    }
+
     _DAXA_RETURN_IF_ERROR(result, result)
     return result;
 }
@@ -1318,11 +1367,10 @@ auto daxa_dvc_queue_wait_idle(daxa_Device self, daxa_Queue queue) -> daxa_Result
     {
         _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
     }
-    if (queue.index >= self->queue_families[queue.family].queue_count)
-    {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
-    }
-    auto result = std::bit_cast<daxa_Result>(vkQueueWaitIdle(self->get_queue(queue).vk_queue));
+    daxa_ImplDevice::ImplQueue & impl_queue = self->get_queue(queue);
+    std::unique_lock queue_lock{impl_queue.mtx};
+
+    daxa_Result result = std::bit_cast<daxa_Result>(vkQueueWaitIdle(impl_queue.vk_queue));
     _DAXA_RETURN_IF_ERROR(result, result)
     return result;
 }
@@ -1361,7 +1409,50 @@ auto daxa_dvc_oldest_pending_submit_index(daxa_Device self, daxa_u64 * submit_in
     return DAXA_RESULT_SUCCESS;
 }
 
-auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> daxa_Result
+auto queue_to_queue_index(daxa_Queue queue) -> u32
+{
+    u32 offsets[3] = {
+        0,
+        1,
+        1 + DAXA_MAX_COMPUTE_QUEUE_COUNT,
+    };
+    return offsets[static_cast<u32>(queue.family)] + queue.index;
+}
+
+auto daxa_dvc_latest_queue_submit_index(daxa_Device self, daxa_Queue queue, daxa_u64 * submit_index) -> daxa_Result
+{
+    if (!self->valid_queue(queue))
+    {
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
+    }
+    u32 queue_index = queue_to_queue_index(queue);
+    auto& impl_queue = self->queues[queue_index];
+    *submit_index = impl_queue.latest_pending_submit_timeline_value.load();
+    return DAXA_RESULT_SUCCESS;
+}
+
+auto daxa_dvc_wait_on_submit(daxa_Device self, daxa_WaitOnSubmitInfo const * info) -> daxa_Result
+{
+    if (!self->valid_queue(info->queue))
+    {
+        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
+    }
+    u32 queue_index = queue_to_queue_index(info->queue);
+    auto& impl_queue = self->queues[queue_index];
+
+    VkSemaphoreWaitInfo const vk_semaphore_wait_info{
+        .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+        .pNext = nullptr,
+        .flags = {},
+        .semaphoreCount = 1,
+        .pSemaphores = &impl_queue.gpu_queue_local_timeline,
+        .pValues = &info->queue_submit_index,
+    };
+
+    return static_cast<daxa_Result>(vkWaitSemaphores(self->vk_device, &vk_semaphore_wait_info, info->timeout));
+}
+
+auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info, daxa_u64 * out_submit_index) -> daxa_Result
 {
     std::array<u8, 1u << 13u /*8kib*/> stack_memory;
     MemoryArena m_arena = MemoryArena{"daxa_dvc_submit dyn stack memory", stack_memory};
@@ -1372,11 +1463,6 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
     }
 
     std::shared_lock lifetime_lock{self->gpu_sro_table.lifetime_lock};
-
-    if (static_cast<u32>(info->queue.index) >= self->queue_families[info->queue.family].queue_count)
-    {
-        _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_INVALID_QUEUE, DAXA_RESULT_ERROR_INVALID_QUEUE);
-    }
 
     for (daxa_ExecutableCommandList commands : std::span{info->command_lists, info->command_list_count})
     {
@@ -1415,8 +1501,14 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
     }
 
     daxa_ImplDevice::ImplQueue & queue = self->get_queue(info->queue);
+    std::unique_lock queue_lock{queue.mtx}; // lock MUST BE before timeline fetch and until after vkQueueSubmit. Otherwise the timeline order can be broken.
+
     u64 const current_timeline_value = self->global_submit_timeline.fetch_add(1) + 1;
     queue.latest_pending_submit_timeline_value.store(current_timeline_value);
+    if (out_submit_index != nullptr)
+    {
+        *out_submit_index = current_timeline_value;
+    }
 
     for (auto const & commands : std::span{info->command_lists, info->command_list_count})
     {
@@ -1478,6 +1570,14 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
         submit_semaphore_wait_values.push_back(0);
     }
 
+    for (auto const & queue_submit_index : std::span{info->wait_queue_submit_indices, info->wait_queue_submit_indices_count})
+    {
+        daxa_ImplDevice::ImplQueue & wait_queue = self->get_queue(queue_submit_index.queue);
+        submit_semaphore_waits.push_back(wait_queue.gpu_queue_local_timeline);
+        submit_semaphore_wait_stage_masks.push_back(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        submit_semaphore_wait_values.push_back(queue_submit_index.index);
+    }
+
     VkTimelineSemaphoreSubmitInfo timeline_info{
         .sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
@@ -1498,10 +1598,11 @@ auto daxa_dvc_submit(daxa_Device self, daxa_CommandSubmitInfo const * info) -> d
         .signalSemaphoreCount = static_cast<u32>(submit_semaphore_signals.size()),
         .pSignalSemaphores = submit_semaphore_signals.clone_to_contiguous().data(),
     };
-    auto result = static_cast<daxa_Result>(vkQueueSubmit(queue.vk_queue, 1, &vk_submit_info, VK_NULL_HANDLE));
+
+    daxa_Result result = static_cast<daxa_Result>(vkQueueSubmit(queue.vk_queue, 1, &vk_submit_info, VK_NULL_HANDLE));
     _DAXA_RETURN_IF_ERROR(result, result)
 
-    return DAXA_RESULT_SUCCESS;
+    return result;
 }
 
 auto daxa_dvc_present(daxa_Device self, daxa_PresentInfo const * info) -> daxa_Result
@@ -1533,7 +1634,10 @@ auto daxa_dvc_present(daxa_Device self, daxa_PresentInfo const * info) -> daxa_R
         .pResults = {},
     };
 
-    auto result = static_cast<daxa_Result>(vkQueuePresentKHR(self->get_queue(info->queue).vk_queue, &present_info));
+    daxa_ImplDevice::ImplQueue & impl_queue = self->get_queue(info->queue);
+        std::unique_lock queue_lock{impl_queue.mtx};
+
+    daxa_Result result = static_cast<daxa_Result>(vkQueuePresentKHR(impl_queue.vk_queue, &present_info));
     _DAXA_RETURN_IF_ERROR(result, result)
     return result;
 }
@@ -2234,23 +2338,21 @@ auto daxa_ImplDevice::create_2(daxa_Instance instance, daxa_DeviceInfo2 const & 
     // Set debug names:
     if ((self->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && !self->info.name.view().empty())
     {
-        auto const device_name = self->info.name.c_str();
         VkDebugUtilsObjectNameInfoEXT const device_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_DEVICE,
             .objectHandle = std::bit_cast<uint64_t>(self->vk_device),
-            .pObjectName = device_name.data(),
+            .pObjectName = self->info.name.c_str(),
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &device_name_info);
 
-        auto const buffer_name = self->info.name.c_str();
         VkDebugUtilsObjectNameInfoEXT const device_buffer_device_address_buffer_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_BUFFER,
             .objectHandle = std::bit_cast<uint64_t>(self->buffer_device_address_buffer),
-            .pObjectName = buffer_name.data(),
+            .pObjectName = self->info.name.c_str(),
         };
         self->vkSetDebugUtilsObjectNameEXT(self->vk_device, &device_buffer_device_address_buffer_name_info);
 
@@ -2333,7 +2435,13 @@ auto daxa_ImplDevice::get_queue(daxa_Queue queue) -> daxa_ImplDevice::ImplQueue 
 
 auto daxa_ImplDevice::valid_queue(daxa_Queue queue) -> bool
 {
-    return queue.family < DAXA_QUEUE_FAMILY_MAX_ENUM && queue.index < this->queue_families[queue.family].queue_count;
+    bool const in_range = queue.family < DAXA_QUEUE_FAMILY_MAX_ENUM && queue.index < this->queue_families[queue.family].queue_count;
+    if (in_range)
+    {
+        u32 const queue_index = queue_to_queue_index(queue);
+        return this->queues[queue_index].vk_queue != VK_NULL_HANDLE;
+    }
+    return false; 
 }
 
 auto daxa_ImplDevice::validate_image_slice(daxa_ImageMipArraySlice const & slice, daxa_ImageId id) -> daxa_ImageMipArraySlice
@@ -2425,13 +2533,12 @@ auto daxa_ImplDevice::new_swapchain_image(VkImage swapchain_image, VkFormat form
 
     if ((this->instance->info.flags & InstanceFlagBits::DEBUG_UTILS) != InstanceFlagBits::NONE && !image_info.name.empty())
     {
-        auto c_str_arr = image_info.name.c_str();
         VkDebugUtilsObjectNameInfoEXT const swapchain_image_name_info{
             .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_IMAGE,
             .objectHandle = std::bit_cast<uint64_t>(ret.vk_image),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = image_info.name.c_str(),
         };
         this->vkSetDebugUtilsObjectNameEXT(this->vk_device, &swapchain_image_name_info);
 
@@ -2440,7 +2547,7 @@ auto daxa_ImplDevice::new_swapchain_image(VkImage swapchain_image, VkFormat form
             .pNext = nullptr,
             .objectType = VK_OBJECT_TYPE_IMAGE_VIEW,
             .objectHandle = std::bit_cast<uint64_t>(ret.view_slot.vk_image_view),
-            .pObjectName = c_str_arr.data(),
+            .pObjectName = image_info.name.c_str(),
         };
         this->vkSetDebugUtilsObjectNameEXT(this->vk_device, &swapchain_image_view_name_info);
     }
@@ -2651,7 +2758,8 @@ void zombiefy(daxa_Device self, T id, auto & slots, auto & zombies)
     {
         if (slot.owns_buffer)
         {
-            self->zombify_buffer(slot.buffer_id);
+            auto result = daxa_dvc_destroy_buffer(self, slot.buffer_id);
+            DAXA_DBG_ASSERT_TRUE_M(result == DAXA_RESULT_SUCCESS, "Tlas owned buffer could not be destroyed.");
         }
     }
     u64 const submit_timeline_value = self->global_submit_timeline.load(std::memory_order::relaxed);

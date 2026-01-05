@@ -283,13 +283,15 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
         surface_extent.height = window_ext.y;
     }
 
-#if __linux__
-    // TODO(grundlett): I (grundlett) am too lazy to find out why the other present modes
-    // fail on Linux. This can be inspected by Linux people and they can
-    // submit a PR if they find a fix.
-    //info.present_mode = PresentMode::IMMEDIATE;
-#endif
-
+    /* TODO: Figure out why this workaround crashes on Intel IGPUs
+    // WORKAROUND
+    // Some AMD RDNA4 drivers can not handle passing the old swapchain to swapchain resizing.
+    // We must destroy the old swapchain and then create the new one fresh.
+    if (this->vk_swapchain)
+    {
+        vkDestroySwapchainKHR(this->device->vk_device, this->vk_swapchain, nullptr);
+        this->vk_swapchain = VK_NULL_HANDLE;
+    }*/
     auto * old_swapchain = this->vk_swapchain;
 
     // NOTE: this is a hack that allows us to ignore issues caused

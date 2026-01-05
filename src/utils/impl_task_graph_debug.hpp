@@ -90,6 +90,7 @@ namespace daxa
 
     void validate_overlapping_attachment_views(ImplTaskGraph const & impl, ImplTask const & task)
     {
+#if !ENABLE_TASK_GRAPH_MK2
 #if DAXA_VALIDATION
         for_each(
             task.attachments,
@@ -144,6 +145,7 @@ namespace daxa
                     });
             });
 #endif
+#endif
     }
 
     template <typename BufferBlasTlasT>
@@ -188,7 +190,7 @@ namespace daxa
     
     void validate_attachment_stages([[maybe_unused]] ImplTaskGraph const & impl, [[maybe_unused]] ImplTask & task)
     {
-#if DAXA_VALIDATION
+#if DAXA_VALIDATION && false
         for_each(
             task.attachments,
             [&](u32, auto & attach)

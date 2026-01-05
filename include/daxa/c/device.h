@@ -400,6 +400,12 @@ static daxa_Queue const DAXA_QUEUE_TRANSFER_1 = {DAXA_QUEUE_FAMILY_TRANSFER, 1};
 typedef struct
 {
     daxa_Queue queue;
+    uint64_t index;
+} daxa_QueueSubmitIndexPair;
+
+typedef struct
+{
+    daxa_Queue queue;
     VkPipelineStageFlags wait_stages;
     daxa_ExecutableCommandList const * command_lists;
     uint64_t command_list_count;
@@ -411,6 +417,8 @@ typedef struct
     uint64_t wait_timeline_semaphore_count;
     daxa_TimelinePair const * signal_timeline_semaphores;
     uint64_t signal_timeline_semaphore_count;
+    daxa_QueueSubmitIndexPair const * wait_queue_submit_indices;
+    uint64_t wait_queue_submit_indices_count;
 } daxa_CommandSubmitInfo;
 
 static daxa_CommandSubmitInfo const DAXA_DEFAULT_COMMAND_SUBMIT_INFO = DAXA_ZERO_INIT;
@@ -427,12 +435,34 @@ static daxa_PresentInfo const DAXA_DEFAULT_PRESENT_INFO = DAXA_ZERO_INIT;
 
 typedef struct
 {
+    daxa_Queue queue;
+    uint64_t queue_submit_index;
+    uint64_t timeout;
+} daxa_WaitOnSubmitInfo;
+
+static daxa_WaitOnSubmitInfo const DAXA_DEFAULT_WAIT_ON_SUBMIT_INFO = {
+    .queue = DAXA_ZERO_INIT,
+    .queue_submit_index = DAXA_ZERO_INIT,
+    .timeout = ~0ull,
+};
+
+typedef struct
+{
     daxa_BufferInfo buffer_info;
     daxa_MemoryBlock * memory_block;
     size_t offset;
 } daxa_MemoryBlockBufferInfo;
 
 static daxa_MemoryBlockBufferInfo const DAXA_DEFAULT_MEMORY_BLOCK_BUFFER_INFO = DAXA_ZERO_INIT;
+
+typedef struct
+{
+    daxa_TlasInfo tlas_info;
+    daxa_MemoryBlock * memory_block;
+    size_t offset;
+} daxa_MemoryBlockTlasInfo;
+
+static daxa_MemoryBlockTlasInfo const DAXA_DEFAULT_MEMORY_BLOCK_TLAS_INFO = DAXA_ZERO_INIT;
 
 typedef struct
 {
@@ -598,6 +628,8 @@ daxa_dvc_create_image(daxa_Device device, daxa_ImageInfo const * info, daxa_Imag
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_create_buffer_from_memory_block(daxa_Device device, daxa_MemoryBlockBufferInfo const * info, daxa_BufferId * out_id);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
+daxa_dvc_create_tlas_from_memory_block(daxa_Device device, daxa_MemoryBlockTlasInfo const * info, daxa_TlasId * out_id);
+DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_create_image_from_block(daxa_Device device, daxa_MemoryBlockImageInfo const * info, daxa_ImageId * out_id);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_create_image_view(daxa_Device device, daxa_ImageViewInfo const * info, daxa_ImageViewId * out_id);
@@ -723,11 +755,15 @@ daxa_dvc_queue_count(daxa_Device device, daxa_QueueFamily queue_family, daxa_u32
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_wait_idle(daxa_Device device);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
-daxa_dvc_submit(daxa_Device device, daxa_CommandSubmitInfo const * info);
+daxa_dvc_submit(daxa_Device device, daxa_CommandSubmitInfo const * info, daxa_u64 * out_submit_index);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_latest_submit_index(daxa_Device device, daxa_u64 * submit_index);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_oldest_pending_submit_index(daxa_Device device, daxa_u64 * submit_index);
+DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
+daxa_dvc_latest_queue_submit_index(daxa_Device device, daxa_Queue queue, daxa_u64 * submit_index);
+DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
+daxa_dvc_wait_on_submit(daxa_Device device, daxa_WaitOnSubmitInfo const * info);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_dvc_present(daxa_Device device, daxa_PresentInfo const * info);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result

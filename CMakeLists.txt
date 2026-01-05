@@ -3,7 +3,13 @@ cmake_minimum_required(VERSION 3.21)
 include("${CMAKE_CURRENT_LIST_DIR}/cmake/warnings.cmake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
+if(DAXA_ENABLE_UTILS_TASK_GRAPH)
+    set(DAXA_ENABLE_UTILS_MEM true)
+endif()
+
 project(daxa VERSION 3.0.2)
+
+include("${CMAKE_CURRENT_LIST_DIR}/cmake/deps.cmake")
 
 if(DAXA_ENABLE_STATIC_ANALYSIS)
     set(CPPCHECK_TEMPLATE "gcc")
@@ -50,9 +56,10 @@ add_library(daxa
     "src/impl_timeline_query.cpp"
 
     "src/utils/impl_task_graph_c.cpp"
+    "src/utils/impl_task_graph_ui.cpp"
     "src/utils/impl_task_graph.cpp"
     "src/utils/impl_imgui.cpp"
-    "src/utils/impl_fsr3.cpp"
+    "src/utils/impl_fsr2.cpp"
     "src/utils/impl_mem.cpp"
     "src/utils/impl_pipeline_manager_c.cpp"
     "src/utils/impl_pipeline_manager.cpp"
@@ -75,8 +82,6 @@ else()
 endif()
 
 target_compile_features(daxa PUBLIC cxx_std_20)
-
-include("${CMAKE_CURRENT_LIST_DIR}/cmake/deps.cmake")
 
 target_compile_definitions(daxa
     PUBLIC
@@ -196,7 +201,7 @@ endif()
 if(DAXA_ENABLE_TOOLS)
     add_executable(daxa_tools_compile_imgui_shaders "src/utils/impl_imgui.cpp")
     target_compile_definitions(daxa_tools_compile_imgui_shaders PRIVATE DAXA_COMPILE_IMGUI_SHADERS=true)
-    target_link_libraries(daxa_tools_compile_imgui_shaders PRIVATE daxa::daxa)
+    target_link_libraries(daxa_tools_compile_imgui_shaders PRIVATE daxa::daxa GPUOpen::VulkanMemoryAllocator Vulkan::Vulkan)
 endif()
 
 include(GNUInstallDirs)

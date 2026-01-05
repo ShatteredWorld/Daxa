@@ -1,3 +1,4 @@
+/*
 #if DAXA_BUILT_WITH_UTILS_TASK_GRAPH
 
 #include "../impl_core.hpp"
@@ -340,7 +341,7 @@ auto daxa_create_task_graph(daxa_TaskGraphInfo const* info, daxa_TaskGraph* out)
     if(bool(info->swapchain.has_value))
     {
         daxa_swp_inc_refcnt(info->swapchain.value);
-    }*/
+    }/
 }
 
 auto daxa_destroy_task_graph(daxa_TaskGraph graph) -> void
@@ -540,3 +541,4 @@ auto daxa_tg_execute(daxa_TaskGraph graph, daxa_TaskExecutionInfo const* info) -
 }
 
 #endif
+*/

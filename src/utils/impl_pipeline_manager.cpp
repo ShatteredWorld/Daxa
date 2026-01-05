@@ -675,6 +675,7 @@ namespace daxa
 #endif
 #if DAXA_BUILT_WITH_UTILS_PIPELINE_MANAGER_SLANG
                 auto ret = slang::createGlobalSession(slang_backend.global_session.writeRef());
+                // std::cout << "using slang " << slang_backend.global_session->getBuildTagString() << "\n";
                 DAXA_DBG_ASSERT_TRUE_M(SLANG_SUCCEEDED(ret), "slang::createGlobalSession failed");
 #endif
             }
@@ -1430,6 +1431,61 @@ namespace daxa
             }
 
             spirv = ret.value();
+
+#if DAXA_BUILT_WITH_UTILS_PIPELINE_MANAGER_SLANG
+            // Patch slang Spirv
+            // There is a bug in slang that it does not annotate per primitive attributes for fragment shaders.
+            // This leads to amd gpus not beeing able to properly read per primitive attributes.
+            // We work around this by adding a daxa name for per primitive inputs (daxa_prim_in).
+            // When the pipeline compiler sees this name, it automatically adds the per primitive attribute to all the fields inside the daxa_prim_in parameter.
+            if (shader_info.language.value() == ShaderLanguage::SLANG) 
+            {
+                char const * patching_prefix = "daxa_prim_in.";
+
+                std::unordered_map<std::string, u32> ids_to_patch = {};
+
+                static const uint32_t SpvOpName      = 5;
+                static const uint32_t SpvOpDecorate  = 71;
+                static const uint32_t SpvDecorationPerPrimitiveEXT = 5271; // from SPIR-V spec
+
+                // Skip header (5 words)
+                size_t i = 5;
+
+                // Pass 1: find the ID of the variable with OpName "prim.visibility_id"
+                while (i < spirv.size())
+                {
+                    uint32_t word0 = spirv[i];
+                    uint16_t wordCount = word0 >> 16;
+                    uint16_t opcode    = word0 & 0xFFFF;
+
+                    if (opcode == SpvOpName)
+                    {
+                        uint32_t id = spirv[i + 1];
+                        const char* name = reinterpret_cast<const char*>(&spirv[i + 2]);
+
+                        if (std::strncmp(patching_prefix, name, std::strlen(patching_prefix)) == 0)
+                        {
+                            ids_to_patch[std::string(name)] = id;
+                        }
+                    }
+
+                    i += wordCount;
+                }
+
+                for (auto [name, target_id] : ids_to_patch)
+                {
+                    // Build the OpDecorate instruction
+                    uint32_t inst[3];
+                    inst[0] = (3u << 16) | SpvOpDecorate;
+                    inst[1] = target_id;
+                    inst[2] = SpvDecorationPerPrimitiveEXT;
+
+                    // Insert after header (word index 5)
+                    spirv.insert(spirv.end(), inst, inst + 3);
+                }
+            }
+#endif
+
             if (this->info.spirv_cache_folder.has_value())
             {
                 save_shader_cache(this->info.spirv_cache_folder.value(), shader_info_hash, spirv);
