@@ -11,6 +11,7 @@
 
 #include "shared.inl"
 
+#include <vulkan/vulkan_core.h>
 #include <GLFW/glfw3.h>
 #if defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32
@@ -21,20 +22,35 @@
 
 auto get_native_handle(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowHandle
 {
-#if defined(_WIN32)
-    return glfwGetWin32Window(glfw_window_ptr);
-#elif defined(__linux__)
-    return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(glfw_window_ptr));
-#endif
+    daxa::NativeWindowHandle handle{};
+    handle.userData = glfw_window_ptr;
+    handle.get_window_surface = [](void * userData, void * instance, void ** out_surface) -> int
+    {
+        auto* glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        return (int)glfwCreateWindowSurface((VkInstance)instance, glfw_window, NULL, (VkSurfaceKHR *)out_surface);
+    };
+    handle.get_window_extent = [](void * userData) -> daxa::Extent2D
+    {
+        auto* glfw_window = reinterpret_cast<GLFWwindow *>(userData);
+        int width, height;
+        glfwGetWindowSize(glfw_window, &width, &height);
+        return daxa::Extent2D{static_cast<daxa::u32>(width), static_cast<daxa::u32>(height)};
+    };
+    return handle;
 }
 
 auto get_native_platform(GLFWwindow * /*unused*/) -> daxa::NativeWindowPlatform
 {
-#if defined(_WIN32)
-    return daxa::NativeWindowPlatform::WIN32_API;
-#elif defined(__linux__)
-    return daxa::NativeWindowPlatform::XLIB_API;
-#endif
+    switch(glfwGetPlatform())
+    {
+        case GLFW_PLATFORM_WIN32:
+            return daxa::NativeWindowPlatform::WIN32_API;
+        case GLFW_PLATFORM_WAYLAND:
+            return daxa::NativeWindowPlatform::WAYLAND_API;
+        case GLFW_PLATFORM_X11:
+        default:
+            return daxa::NativeWindowPlatform::XLIB_API;
+    }
 }
 
 struct WindowInfo
@@ -62,7 +78,7 @@ auto main() -> int
             window_info_ref.width = static_cast<daxa::u32>(width);
             window_info_ref.height = static_cast<daxa::u32>(height);
         });
-    auto * native_window_handle = get_native_handle(glfw_window_ptr);
+    auto native_window_handle = get_native_handle(glfw_window_ptr);
     auto native_window_platform = get_native_platform(glfw_window_ptr);
 
     daxa::Instance instance = daxa::create_instance({});

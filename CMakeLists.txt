@@ -57,6 +57,7 @@ add_library(daxa
 
     "src/utils/impl_task_graph_c.cpp"
     "src/utils/impl_task_graph_ui.cpp"
+    "src/utils/impl_resource_viewer.cpp"
     "src/utils/impl_task_graph.cpp"
     "src/utils/impl_imgui.cpp"
     "src/utils/impl_fsr2.cpp"
@@ -110,6 +111,10 @@ if(DAXA_ENABLE_UTILS_IMGUI)
     target_link_libraries(daxa
         PUBLIC
         imgui::imgui
+    )
+    target_link_libraries(daxa
+        PUBLIC
+        implot::implot
     )
 endif()
 if(DAXA_ENABLE_UTILS_MEM)
@@ -202,6 +207,10 @@ if(DAXA_ENABLE_TOOLS)
     add_executable(daxa_tools_compile_imgui_shaders "src/utils/impl_imgui.cpp")
     target_compile_definitions(daxa_tools_compile_imgui_shaders PRIVATE DAXA_COMPILE_IMGUI_SHADERS=true)
     target_link_libraries(daxa_tools_compile_imgui_shaders PRIVATE daxa::daxa GPUOpen::VulkanMemoryAllocator Vulkan::Vulkan)
+
+    add_executable(daxa_tools_compile_resource_viewer_shaders "src/utils/impl_resource_viewer_compile_shaders.cpp")
+    target_compile_definitions(daxa_tools_compile_resource_viewer_shaders PRIVATE DAXA_COMPILE_RESOURCE_VIEWER_SHADERS=true)
+    target_link_libraries(daxa_tools_compile_resource_viewer_shaders PRIVATE daxa::daxa GPUOpen::VulkanMemoryAllocator Vulkan::Vulkan)
 endif()
 
 include(GNUInstallDirs)

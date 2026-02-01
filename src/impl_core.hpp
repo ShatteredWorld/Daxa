@@ -482,12 +482,14 @@ namespace daxa
 
         auto at(usize idx) -> T &
         {
+            DAXA_DBG_ASSERT_TRUE_M(idx < this->size(), "ERROR: OUT OF BOUNDS ACCESS");
             auto bi = BlockIndex::element_index_to_block(static_cast<u32>(idx));
             return this->block_allocations[bi.block][bi.in_block_index];
         }
 
         auto at(usize idx) const -> T const &
         {
+            DAXA_DBG_ASSERT_TRUE_M(idx < this->size(), "ERROR: OUT OF BOUNDS ACCESS");
             auto bi = BlockIndex::element_index_to_block(static_cast<u32>(idx));
             return this->block_allocations[bi.block][bi.in_block_index];
         }
@@ -544,11 +546,12 @@ namespace daxa
                 return;
             }
             this->reserve(new_size);
-            for (u32 i = element_count; i < new_size; ++i)
+            u32 const old_size = element_count;
+            element_count = new_size;
+            for (u32 i = old_size; i < new_size; ++i)
             {
                 this->at(i) = value;
             }
-            element_count = new_size;
         }
 
         auto back() -> T &
@@ -656,8 +659,8 @@ namespace daxa
 
             u32 idx = iter.current_index;
 
-            this->push_back({});
             u32 const elements_to_move = this->element_count - idx;
+            this->push_back({});
             for (u32 i = 0; i < elements_to_move; ++i)
             {
                 u32 const src = this->element_count - 1 - i;

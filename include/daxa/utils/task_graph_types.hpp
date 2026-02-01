@@ -20,7 +20,7 @@
 #include <daxa/device.hpp>
 #include <daxa/utils/mem.hpp>
 
-#define ENABLE_TASK_GRAPH_MK2 0
+#define DAXA_ENABLE_TASK_GRAPH_MK2 0
 
 namespace daxa
 {
@@ -58,21 +58,35 @@ namespace daxa
     enum struct TaskAccessType : u8
     {
         // Concurrent bit: 0
-        // Read bit: 1
-        // Sampled bit: 2
+        // Sampled bit: 1
+        // Read bit: 2
         // Write bit: 3
         NONE = 0,
         CONCURRENT_BIT = (1 << 0),
-        NON_CONCURRENT_READ = (1 << 1),
-        NON_CONCURRENT_SAMPLED = (1 << 2),
-        NON_CONCURRENT_WRITE = (1 << 3),
-        READ = NON_CONCURRENT_READ | CONCURRENT_BIT,
-        SAMPLED = NON_CONCURRENT_SAMPLED | CONCURRENT_BIT,
-        WRITE = NON_CONCURRENT_WRITE,
-        READ_WRITE = NON_CONCURRENT_READ | NON_CONCURRENT_WRITE,
-        WRITE_CONCURRENT = NON_CONCURRENT_WRITE | CONCURRENT_BIT,
-        READ_WRITE_CONCURRENT = READ_WRITE | CONCURRENT_BIT,
+        SAMPLED_BIT = (1 << 1),
+        READ_BIT = (1 << 2),
+        WRITE_BIT = (1 << 3),
+        READ = READ_BIT | CONCURRENT_BIT,
+        SAMPLED = READ_BIT | CONCURRENT_BIT | SAMPLED_BIT,
+        WRITE = WRITE_BIT,
+        READ_WRITE = READ_BIT | WRITE_BIT,
+        WRITE_CONCURRENT = WRITE_BIT | CONCURRENT_BIT,
+        READ_WRITE_CONCURRENT = READ_BIT | WRITE_BIT | CONCURRENT_BIT,
     };
+
+    inline auto is_access_concurrent(TaskAccessType type) -> bool
+    {
+        return (static_cast<u8>(type) & static_cast<u8>(TaskAccessType::CONCURRENT_BIT)) != 0;
+    } 
+
+    inline auto are_accesses_compatible(TaskAccessType a, TaskAccessType b) -> bool
+    {
+        u8 const a_sampled_ignored = static_cast<u8>(a) & ~(static_cast<u8>(TaskAccessType::SAMPLED_BIT));
+        u8 const b_sampled_ignored = static_cast<u8>(b) & ~(static_cast<u8>(TaskAccessType::SAMPLED_BIT));
+        return (a_sampled_ignored == b_sampled_ignored) && is_access_concurrent(a) && is_access_concurrent(b);
+    }
+
+    auto to_string(TaskAccessType taccess) -> std::string_view;
 
     auto to_access_type(TaskAccessType taccess) -> AccessTypeFlags;
 
@@ -136,7 +150,7 @@ namespace daxa
         return static_cast<TaskStage>(~static_cast<u64>(a));
     }
 
-    auto to_string(TaskStage stage) -> std::string_view;
+    auto to_string(TaskStage stage) -> std::string;
 
     auto to_pipeline_stage_flags(TaskStage stage) -> PipelineStageFlags;
 
@@ -156,7 +170,7 @@ namespace daxa
         return ret;
     }
 
-    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskAccess const & access) -> std::string_view;
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskAccess const & access) -> std::string;
 
     template <TaskStage STAGE, TaskAttachmentType ATTACHMENT_TYPE_RESTRICTION = TaskAttachmentType::UNDEFINED>
     struct TaskAccessConstsPartial
@@ -436,13 +450,6 @@ namespace daxa
         auto is_empty() const -> bool { return operator TaskGPUResourceView const &().is_empty(); }
         auto is_external() const -> bool { return operator TaskGPUResourceView const &().is_external(); }
         auto is_null() const -> bool { return operator TaskGPUResourceView const &().is_null(); }
-    };
-
-    struct Test
-    {
-        TaskResourceIndex task_graph_index = {};
-        TaskResourceIndex index = {};
-        ImageMipArraySlice slice = {};
     };
 
 #ifndef __clang__ // MSVC STL does not implement these for clang :/
@@ -905,7 +912,7 @@ namespace daxa
         std::string name = {};
     };
 
-#if ENABLE_TASK_GRAPH_MK2
+#if DAXA_ENABLE_TASK_GRAPH_MK2
     struct ImplExternalResource;
     using ImplPersistentTaskBufferBlasTlas = ImplExternalResource;
 #else
@@ -1024,7 +1031,7 @@ namespace daxa
         std::string name = {};
     };
 
-#if ENABLE_TASK_GRAPH_MK2
+#if DAXA_ENABLE_TASK_GRAPH_MK2
     struct ImplExternalResource;
     using ImplPersistentTaskImage = ImplExternalResource;
 #else

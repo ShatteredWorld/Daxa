@@ -43,6 +43,59 @@ namespace daxa
         EXCLUSIVE
     };
 
+    auto queue_to_queue_index(daxa::Queue queue) -> u32
+    {
+        u32 offsets[3] = {
+            0,
+            1,
+            1 + DAXA_MAX_COMPUTE_QUEUE_COUNT,
+        };
+        return offsets[static_cast<u32>(queue.family)] + queue.index;
+    }
+
+    auto queue_index_to_queue(u32 flat_index) -> daxa::Queue
+    {
+        daxa::Queue queues[] = {
+            daxa::QUEUE_MAIN,
+            daxa::QUEUE_COMPUTE_0,
+            daxa::QUEUE_COMPUTE_1,
+            daxa::QUEUE_COMPUTE_2,
+            daxa::QUEUE_COMPUTE_3,
+            daxa::QUEUE_TRANSFER_0,
+            daxa::QUEUE_TRANSFER_1,
+        };
+        return queues[flat_index];
+    }
+
+    auto queue_bits_to_first_queue_index(u32 queue_bits) -> u32
+    {
+        return 31u - static_cast<u32>(std::countl_zero(queue_bits));
+    }
+
+    auto queue_index_to_queue_bit(u32 queue_index) -> u32
+    {
+        return 1u << queue_index;
+    }
+
+    inline auto queue_bits_to_string(u32 queue_bits) -> std::string
+    {
+        std::string ret = {};
+        u32 iter = queue_bits;
+        while(iter)
+        {
+            u32 queue_index = queue_bits_to_first_queue_index(iter);
+            iter &= ~(1u << queue_index);
+
+            Queue queue = queue_index_to_queue(queue_index);
+
+            ret += to_string(queue);
+            if (iter)
+            {
+                ret += ", ";
+            }
+        }
+        return ret;
+    }
 
     struct ImplTask;
 
@@ -53,6 +106,8 @@ namespace daxa
         u32 attachment_index = {};
     };
 
+    struct TaskBarrier;
+
     struct AccessGroup
     {
         TaskStage stages = {};
@@ -61,6 +116,7 @@ namespace daxa
         std::span<TaskAttachmentAccess> tasks = {};
         u32 final_schedule_first_batch = ~0u;
         u32 final_schedule_last_batch = {};
+        TaskBarrier const * final_schedule_pre_barrier = {};
     };
 
     enum struct TaskResourceKind
@@ -70,6 +126,18 @@ namespace daxa
         BLAS,
         IMAGE
     };
+
+    inline auto to_string(TaskResourceKind kind) -> std::string_view
+    {
+        switch(kind)
+        {
+        case TaskResourceKind::BUFFER: return "BUFFER";
+        case TaskResourceKind::TLAS: return "TLAS";
+        case TaskResourceKind::BLAS: return "BLAS";
+        case TaskResourceKind::IMAGE: return "IMAGE";
+        default: return "UNKNOWN";
+        }
+    }
 
     struct ImplTaskResource
     {
@@ -82,6 +150,10 @@ namespace daxa
         u32 final_schedule_first_submit = {};
         u32 final_schedule_last_submit = {};
         u32 queue_bits = {};
+        u64 allocation_size = {};
+        u64 allocation_alignment = {};
+        u32 allocation_allowed_memory_type_bits = {};
+        u64 allocation_offset = {};
 
         union {
             BufferId buffer;
@@ -126,8 +198,8 @@ namespace daxa
         void (*task_callback)(daxa::TaskInterface, void*) = {};     
         u64* task_callback_memory = {};                             // holds callback captured variables
         std::span<TaskAttachmentInfo> attachments = {};             
-        std::span<ImplTaskResource*> attachment_resources = {};
-        std::span<AccessGroup*> attachment_access_groups = {};      // set when compiling
+        std::span<std::pair<ImplTaskResource*, u32>> attachment_resources = {};
+        std::span<std::pair<AccessGroup*, u32>> attachment_access_groups = {};      // set when compiling
         u32 attachment_shader_blob_size = {};                       
         u32 attachment_shader_blob_alignment = {};            
         std::span<std::byte> attachment_shader_blob = {};      
@@ -195,17 +267,8 @@ namespace daxa
 
     struct TaskBarrier
     {
-        AccessGroup const * src_access_group = {};
-        AccessGroup const * dst_access_group = {};
-        Access src_access = AccessConsts::NONE;
-        Access dst_access = AccessConsts::NONE;
-        ImplTaskResource* resource = {};
-    };
-
-    struct TaskImageBarrier
-    {
-        AccessGroup const * src_access_group = {};
-        AccessGroup const * dst_access_group = {};
+        AccessGroup * src_access_group = {};
+        AccessGroup * dst_access_group = {};
         Access src_access = AccessConsts::NONE;
         Access dst_access = AccessConsts::NONE;
         ImplTaskResource* resource = {};
@@ -216,18 +279,18 @@ namespace daxa
     {
         std::span<std::pair<ImplTask*, u32>> tasks = {};
         std::span<TaskBarrier> pre_batch_barriers = {};
-        std::span<TaskImageBarrier> pre_batch_image_barriers = {};
+        std::span<TaskBarrier> pre_batch_image_barriers = {};
     };
 
     struct TasksSubmit
     {
-        u32 first_task = {};
-        u32 task_count = {};
-        u32 first_batch = {};
-        u32 batch_count = {};
-        u32 queue_bits = {};                                                                // set when compiling
-        std::array<std::span<TasksBatch>, DAXA_MAX_TOTAL_QUEUE_COUNT> queue_batches = {};   // set when compiling
-        std::span<u32> queue_indices = {};                                                  // set when compiling
+        u32 final_schedule_first_batch = {};
+        u32 final_schedule_last_batch = {};
+        u32 queue_bits = {};
+        std::array<u32, DAXA_QUEUE_COUNT> queue_batch_counts = {};
+        std::array<std::span<TasksBatch>, DAXA_QUEUE_COUNT> queue_batches = {};
+        std::array<std::string_view, DAXA_QUEUE_COUNT> queue_batch_cmd_recorder_labels = {};
+        std::span<u32> queue_indices = {};
     };
 
     struct TaskGraphPresent
@@ -249,16 +312,18 @@ namespace daxa
 
         ArenaDynamicArray8k<ImplTask> tasks = {};
         ArenaDynamicArray8k<ImplTaskResource> resources = {};
+        std::unordered_map<std::string_view, std::tuple<ImplTask*, u32, u32>> name_to_task_table = {};          // unique task name -> local id into task. Duplicate Task names are modified to be unique
         std::span<std::pair<ImplTaskResource*, u32>> external_resources = {};
-        std::unordered_map<std::string_view, std::pair<ImplTaskResource*, u32>> name_to_resource_table = {}; // unique buffer name -> local id into buffers.
-        std::unordered_map<u32, std::pair<ImplTaskResource*, u32>> external_idx_to_resource_table = {};      // global unique external id -> local id into buffers.
+        std::unordered_map<std::string_view, std::pair<ImplTaskResource*, u32>> name_to_resource_table = {};    // unique buffer name -> local id into buffers.
+        std::unordered_map<u32, std::pair<ImplTaskResource*, u32>> external_idx_to_resource_table = {};         // global unique external id -> local id into buffers.
         ArenaDynamicArray8k<TasksSubmit> submits = {};
+        u32 flat_batch_count = {};                                                                              // total batch count ignoring async compute;
         u32 queue_bits = {};
         daxa::MemoryBlock transient_memory_block = {};
         std::optional<daxa::TransferMemoryPool> staging_memory = {};
         std::optional<TaskGraphPresent> present = {};
         ImplTaskResource* swapchain_image = nullptr;
-
+        
         static void zero_ref_callback(ImplHandle const * handle);
     };
 

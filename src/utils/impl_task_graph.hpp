@@ -2,7 +2,7 @@
 
 #include <daxa/utils/task_graph_types.hpp>
 
-#if ENABLE_TASK_GRAPH_MK2
+#if DAXA_ENABLE_TASK_GRAPH_MK2
 #include "impl_task_graph_mk2.hpp"
 #else
 
@@ -188,7 +188,7 @@ namespace daxa
     {
         CommandSubmitInfo submit_info = {};
         TaskSubmitInfo user_submit_info = {};
-        std::array<QueueSubmitScope, DAXA_MAX_TOTAL_QUEUE_COUNT> queue_submit_scopes = {};
+        std::array<QueueSubmitScope, DAXA_QUEUE_COUNT> queue_submit_scopes = {};
     };
 
     auto task_image_access_to_layout_access(TaskAccess const & access) -> std::tuple<ImageLayout, Access, TaskAccessConcurrency>;
@@ -414,9 +414,9 @@ namespace daxa
         u32 prev_frame_permutation_index = {};
         std::stringstream debug_string_stream = {};
 
-        std::array<bool, DAXA_MAX_TOTAL_QUEUE_COUNT> queue_used = {};
-        std::array<TimelineSemaphore, DAXA_MAX_TOTAL_QUEUE_COUNT> gpu_submit_timeline_semaphores = {};
-        std::array<u64, DAXA_MAX_TOTAL_QUEUE_COUNT> cpu_submit_timeline_values = {};
+        std::array<bool, DAXA_QUEUE_COUNT> queue_used = {};
+        std::array<TimelineSemaphore, DAXA_QUEUE_COUNT> gpu_submit_timeline_semaphores = {};
+        std::array<u64, DAXA_QUEUE_COUNT> cpu_submit_timeline_values = {};
 
         template <typename TaskIdT>
         auto get_actual_buffer_blas_tlas(TaskIdT id, TaskGraphPermutation const & perm) const -> std::span<typename TaskIdT::ID_T const>
