@@ -2233,6 +2233,7 @@ namespace daxa
         };
         auto tmp_minsh_resource_latest_access_groups = tmp_memory.allocate_trivial_span_fill(impl.resources.size(), TmpLatestAccessGroup{});
 
+        std::array<u32, DAXA_QUEUE_COUNT> current_submit_per_queue_task_count = {};
 
         u32 latest_submit_index = 0u;
         u32 first_batch_after_latest_submit = 0u;
@@ -2247,14 +2248,19 @@ namespace daxa
                     .queue_bits = {},
                 });
                 first_batch_after_latest_submit = static_cast<u32>(tmp_minsh_task_batches.size()) - 1u;
+                if (!impl.info.reorder_tasks)
+                {
+                    current_submit_per_queue_task_count = {};
+                }
             }
             latest_submit_index = task.submit_index;
 
             // Find min batch index
-            u32 min_batch_index = std::max(1ull, tmp_minsh_task_batches.size()) - 1ull;
-            if (impl.info.reorder_tasks)
+            u32 min_batch_index = first_batch_after_latest_submit;
+            if (!impl.info.reorder_tasks)
             {
-                min_batch_index = first_batch_after_latest_submit;
+                min_batch_index += current_submit_per_queue_task_count[queue_to_queue_index(task.queue)];
+                current_submit_per_queue_task_count[queue_to_queue_index(task.queue)] += 1;
             }
             for (u32 attach_i = 0; attach_i < task.attachments.size(); ++attach_i)
             {
@@ -2662,8 +2668,8 @@ namespace daxa
             return r0_lifetime > r1_lifetime; });
 
         // Calculate transient heap size and allocation offsets.
-        auto transient_heap_size = 0ull;
-        auto transient_heap_alignment = 0ull;
+        auto transient_heap_size = 0ul;
+        auto transient_heap_alignment = 0ul;
         auto transient_heap_memory_bits = ~0u;
         struct TransientResourceAllocation
         {
@@ -3385,13 +3391,13 @@ namespace daxa
         /// =======================
         /// ==== DEBUG UI HOOK ====
         /// =======================
-
+#if DAXA_BUILT_WITH_UTILS_IMGUI
         ImplTaskGraphDebugUi* debug_ui_context = info.debug_ui ? info.debug_ui->get() : nullptr;
         if (debug_ui_context && debug_ui_context->resource_viewer_states.size() == 0)
         {
             debug_ui_context = nullptr; // We only care about the debug ui when there are active attachment viewers.
         }
-
+#endif
         /// ====================================
         /// ==== RECORD AND SUBMIT COMMANDS ====
         /// ====================================
@@ -3613,10 +3619,12 @@ namespace daxa
                                 .name = task.name.data(),
                             });
                         }
+#if DAXA_BUILT_WITH_UTILS_IMGUI
                         if (debug_ui_context)
                         {
                             task_resource_viewer_debug_ui_hook(*debug_ui_context, &impl, task_i, interface, true);
                         }
+#endif
                         if (impl.info.pre_task_callback)
                         {
                             impl.info.pre_task_callback(interface);
@@ -3626,10 +3634,12 @@ namespace daxa
                         {
                             impl.info.post_task_callback(interface);
                         }
+#if DAXA_BUILT_WITH_UTILS_IMGUI
                         if (debug_ui_context)
                         {
                             task_resource_viewer_debug_ui_hook(*debug_ui_context, &impl, task_i, interface, false);
                         }
+#endif
                         if (impl.info.enable_command_labels)
                         {
                             impl_runtime.recorder.end_label();

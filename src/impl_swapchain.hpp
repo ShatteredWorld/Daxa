@@ -32,8 +32,7 @@
 ///
 /// To limit the frames in flight we employ a timeline semaphore that must be signaled in a submission that uses or after one that uses the swapchain image.
 ///
-/// WARNING: The swapchain only works on the main queue! It is directly tied to it.
-///
+
 /// TODO: investigate if wsi is improved enough to use zombies for swapchain.
 struct daxa_ImplSwapchain final : ImplHandle
 {
@@ -45,6 +44,7 @@ struct daxa_ImplSwapchain final : ImplHandle
     VkSurfaceFormatKHR vk_surface_format = {};
     VkExtent2D surface_extent = {};
     std::vector<PresentMode> supported_present_modes = {};
+
     // Swapchain holds strong references to these objects as it owns them.
     std::vector<ImageId> images = {};
     std::vector<BinarySemaphore> acquire_semaphores = {};

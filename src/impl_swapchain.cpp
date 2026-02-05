@@ -23,13 +23,11 @@ auto daxa_default_format_selector(VkFormat format) -> i32
 
 auto daxa_dvc_create_swapchain(daxa_Device device, daxa_SwapchainInfo const * info, daxa_Swapchain * out_swapchain) -> daxa_Result
 {
-    device->inc_weak_refcnt();
     auto ret = daxa_ImplSwapchain{};
     ret.device = device;
-    ret.info = *reinterpret_cast<SwapchainInfo const *>(info);
-    auto result = ret.recreate_surface();
-    _DAXA_RETURN_IF_ERROR(result, result);
+    ret.info = std::bit_cast<SwapchainInfo>(*info);
 
+    daxa_Result result = DAXA_RESULT_SUCCESS;
     defer
     {
         if (result != DAXA_RESULT_SUCCESS)
@@ -38,8 +36,43 @@ auto daxa_dvc_create_swapchain(daxa_Device device, daxa_SwapchainInfo const * in
         }
     };
 
+#if defined(__linux__) && DAXA_BUILT_WITH_WAYLAND
+    if (NativeWindowInfoWayland* wayland_info = daxa::get_if<NativeWindowInfoWayland>(&ret.info.native_window_info))
+    {
+        if (wayland_info->display == nullptr)
+        {
+            result = DAXA_RESULT_ERROR_WAYLAND_DISPLAY_IS_NULL;
+            _DAXA_RETURN_IF_ERROR(result, result);
+        }
+
+        if (wayland_info->surface == nullptr)
+        {
+            result = DAXA_RESULT_ERROR_WAYLAND_SURFACE_IS_NULL;
+            _DAXA_RETURN_IF_ERROR(result, result);
+        }
+    }
+#endif
+
+    result = ret.recreate_surface();
+    _DAXA_RETURN_IF_ERROR(result, result);
+
+    VkBool32 present_support = VK_FALSE;
+    result = static_cast<daxa_Result>(vkGetPhysicalDeviceSurfaceSupportKHR(
+        device->vk_physical_device,
+        device->queue_families[info->queue_family].vk_queue_family_index,
+        ret.vk_surface,
+        &present_support));
+    _DAXA_RETURN_IF_ERROR(result, result);
+
+    if (present_support != VK_TRUE) 
+    {
+        result = DAXA_RESULT_ERROR_QUEUE_DOES_NOT_SUPPORT_SURFACE;
+        _DAXA_RETURN_IF_ERROR(result, result);
+    }
+
     if (info->queue_family >= DAXA_QUEUE_FAMILY_MAX_ENUM || device->queue_families[info->queue_family].queue_count == 0)
     {
+        result = DAXA_RESULT_ERROR_INVALID_QUEUE;
         _DAXA_RETURN_IF_ERROR(result, result);
     }
 
@@ -120,6 +153,7 @@ auto daxa_dvc_create_swapchain(daxa_Device device, daxa_SwapchainInfo const * in
     result = daxa_dvc_create_timeline_semaphore(device, &timeline_sema_info, r_cast<daxa_TimelineSemaphore *>(&ret.gpu_frame_timeline));
     _DAXA_RETURN_IF_ERROR(result, result);
 
+    device->inc_weak_refcnt();
     ret.strong_count = 1;
     *out_swapchain = new daxa_ImplSwapchain{};
     **out_swapchain = std::move(ret);
@@ -256,6 +290,7 @@ auto daxa_swp_dec_refcnt(daxa_Swapchain self) -> u64
 auto daxa_ImplSwapchain::recreate() -> daxa_Result
 {
     daxa_Result result = DAXA_RESULT_SUCCESS;
+
     // Check present mode:
     auto iter = std::find(this->supported_present_modes.begin(), this->supported_present_modes.end(), this->info.present_mode);
     if (iter == this->supported_present_modes.end())
@@ -273,15 +308,30 @@ auto daxa_ImplSwapchain::recreate() -> daxa_Result
 
     surface_extent.width = surface_capabilities.currentExtent.width;
     surface_extent.height = surface_capabilities.currentExtent.height;
-
-    if (surface_extent.width == UINT32_MAX || surface_extent.height == UINT32_MAX)
+#if defined(__linux__) && DAXA_BUILT_WITH_WAYLAND
+    if (NativeWindowInfoWayland* wayland_info = daxa::get_if<NativeWindowInfoWayland>(&info.native_window_info))
     {
-        // If the surface extent is undefined, we can use the window size.
-        DAXA_DBG_ASSERT_TRUE_M(this->info.native_window.get_window_extent != nullptr, "Native window handle must have a get_window_extent function pointer set when not using opaque pointer kind.");
-        Extent2D window_ext = info.native_window.get_window_extent(info.native_window.userData);
-        surface_extent.width = window_ext.x;
-        surface_extent.height = window_ext.y;
+        // Quoting Vulkan spec:
+        // > "On Wayland, currentExtent is the special value (0xFFFFFFFF, 0xFFFFFFFF),
+        //    indicating that the surface size will be determined by the extent of a swapchain targeting the surface.
+        //    Whatever the application sets a swapchain’s imageExtent to will be the size of the window, after the first image is presented."
+        // Therefore, if the wayland compositor has no preference for the window size, we use the size provided by the user
+        if (surface_capabilities.currentExtent.width == UINT32_MAX || surface_capabilities.currentExtent.height == UINT32_MAX)
+        {
+            // For Wayland, we must use the stored window dimensions
+            surface_extent.width = std::clamp(
+                wayland_info->width,
+                surface_capabilities.minImageExtent.width,
+                surface_capabilities.maxImageExtent.width
+            );
+            surface_extent.height = std::clamp(
+                wayland_info->height,
+                surface_capabilities.minImageExtent.height,
+                surface_capabilities.maxImageExtent.height
+            );
+        }
     }
+#endif // #if defined(__linux__) && DAXA_BUILT_WITH_WAYLAND
 
     /* TODO: Figure out why this workaround crashes on Intel IGPUs
     // WORKAROUND
@@ -435,10 +485,10 @@ auto daxa_ImplSwapchain::recreate_surface() -> daxa_Result
     {
         vkDestroySurfaceKHR(this->device->instance->vk_instance, this->vk_surface, nullptr);
     }
+
     return create_surface(
         this->device->instance,
-        std::bit_cast<daxa_NativeWindowHandle>(this->info.native_window),
-        std::bit_cast<daxa_NativeWindowPlatform>(this->info.native_window_platform),
+        std::bit_cast<daxa_NativeWindowInfo>(this->info.native_window_info),
         &this->vk_surface);
 }
 

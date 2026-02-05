@@ -61,11 +61,70 @@ auto make_subresource_layers(ImageArraySlice const & slice, VkImageAspectFlags a
         .layerCount = slice.layer_count,
     };
 }
-auto create_surface(daxa_Instance instance, daxa_NativeWindowHandle handle, [[maybe_unused]] daxa_NativeWindowPlatform platform, VkSurfaceKHR * out_surface) -> daxa_Result
+auto create_surface(daxa_Instance instance, daxa_NativeWindowInfo native_window_info, VkSurfaceKHR * out_surface) -> daxa_Result
 {
-    DAXA_DBG_ASSERT_TRUE_M(handle.get_window_surface != nullptr, "Native window handle must have a get_window_surface function pointer set when not using opaque pointer kind.");
-    VkResult vk_result = handle.get_window_surface(handle.userData, instance->vk_instance, out_surface);
-    return std::bit_cast<daxa_Result>(vk_result);
+    NativeWindowInfo native_window_info_cpp = std::bit_cast<NativeWindowInfo>(native_window_info);
+#if defined(_WIN32)
+    if (NativeWindowInfoWin32* win32_info = daxa::get_if<NativeWindowInfoWin32>(&native_window_info_cpp))
+    {
+        VkWin32SurfaceCreateInfoKHR const surface_ci{
+            .sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = 0,
+            .hinstance = GetModuleHandleA(nullptr),
+            .hwnd = static_cast<HWND>(win32_info->hwnd),
+        };
+        {
+            auto func = reinterpret_cast<PFN_vkCreateWin32SurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWin32SurfaceKHR"));
+            auto result = static_cast<daxa_Result>(func(instance->vk_instance, &surface_ci, nullptr, out_surface));
+            _DAXA_RETURN_IF_ERROR(result, result);
+            return result;
+        }
+    }
+#elif defined(__linux__) // #if defined(_WIN32)
+#if DAXA_BUILT_WITH_X11
+    if (NativeWindowInfoXlib* xlib_info = daxa::get_if<NativeWindowInfoXlib>(&native_window_info_cpp))
+    {
+        VkXlibSurfaceCreateInfoKHR surface_ci{
+            .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = 0,
+            .dpy = XOpenDisplay(nullptr),
+            .window = reinterpret_cast<Window>(xlib_info->window),
+        };
+        {
+            auto func = reinterpret_cast<PFN_vkCreateXlibSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateXlibSurfaceKHR"));
+            auto result = static_cast<daxa_Result>(func(instance->vk_instance, &surface_ci, nullptr, out_surface));
+            _DAXA_RETURN_IF_ERROR(result, result);
+            return result;
+        }
+    }
+#endif // #if DAXA_BUILT_WITH_X11
+#if DAXA_BUILT_WITH_WAYLAND
+    if (NativeWindowInfoWayland* wayland_info = daxa::get_if<NativeWindowInfoWayland>(&native_window_info_cpp))
+    {
+        VkWaylandSurfaceCreateInfoKHR surface_ci{
+            .sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .flags = 0,
+            .display = static_cast<wl_display*>(wayland_info->display),
+            .surface = static_cast<wl_surface*>(wayland_info->surface),
+        };
+
+        PFN_vkCreateWaylandSurfaceKHR createSurfaceWaylandFunc = reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(vkGetInstanceProcAddr(instance->vk_instance, "vkCreateWaylandSurfaceKHR"));
+
+        if (createSurfaceWaylandFunc == nullptr) 
+        {
+            _DAXA_RETURN_IF_ERROR(DAXA_RESULT_ERROR_WAYLAND_FAILED_TO_CREATE_SURFACE, DAXA_RESULT_ERROR_WAYLAND_FAILED_TO_CREATE_SURFACE);
+        }
+
+        auto result = static_cast<daxa_Result>(createSurfaceWaylandFunc(instance->vk_instance, &surface_ci, nullptr, out_surface));
+        _DAXA_RETURN_IF_ERROR(result, result);
+        return result;
+    }
+#endif // #if DAXA_BUILT_WITH_WAYLAND
+#endif // #elif defined(__linux__) // #if defined(_WIN32)
+    return DAXA_RESULT_ERROR_UNKNOWN;
 }
 
 #define DAXA_ASSIGN_ARRAY_3(SRC) \

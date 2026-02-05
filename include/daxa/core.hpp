@@ -49,26 +49,6 @@
 
 namespace daxa
 {
-    /// @brief  A platform-dependent window resource.
-    struct NativeWindowHandle
-    {
-        void* userData;
-        int (*get_window_surface) (void* userData, void* instance, void** out_surface);
-        struct Extent2D (*get_window_extent) (void* userData);
-    };
-
-    enum struct NativeWindowPlatform
-    {
-        UNKNOWN,
-        WIN32_API,
-        XLIB_API,
-        WAYLAND_API,
-        MAX_ENUM = 0x7fffffff,
-    };
-} // namespace daxa
-
-namespace daxa
-{
     template <typename T>
     struct Result
     {
