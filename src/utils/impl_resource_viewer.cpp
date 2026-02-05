@@ -952,7 +952,7 @@ namespace daxa
             // Everything must begin with a struct keyword.
             if(! work_code.starts_with("struct"))
             {
-                result.error_message = std::format("Expected 'struct' keyword got \"{}...\"", work_code.substr(0, std::min(work_code.size(), 20ull)));
+                result.error_message = std::format("Expected 'struct' keyword got \"{}...\"", work_code.substr(0, std::min(work_code.size(), 20ul)));
                 return result;
             }
             // Skip struct keyword.
@@ -975,7 +975,7 @@ namespace daxa
             // Expect opening brace.
             if(! work_code.starts_with("{"))
             {
-                result.error_message = std::format("Expected '{{' after struct name '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ull)));
+                result.error_message = std::format("Expected '{{' after struct name '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ul)));
                 return result;
             }
             work_code = work_code.substr(1);
@@ -990,7 +990,7 @@ namespace daxa
                     work_code = work_code.substr(1);
                     if(!work_code.starts_with(";"))
                     {
-                        result.error_message = std::format("Expected ';' after closing '}}' of struct '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ull)));
+                        result.error_message = std::format("Expected ';' after closing '}}' of struct '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ul)));
                         return result;
                     }
                     work_code = work_code.substr(1);
@@ -1022,7 +1022,7 @@ namespace daxa
                     pointer_depth = 1;
                     if(!member_type.ends_with(")"))
                     {
-                        result.error_message = std::format("Expected closing ')' for buffer pointer type in struct '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ull)));
+                        result.error_message = std::format("Expected closing ')' for buffer pointer type in struct '{}', got \"{}...\"", struct_name, work_code.substr(0, std::min(work_code.size(), 20ul)));
                         return result;
                     }
                     member_type.remove_prefix(member_type.find('(') + 1);
@@ -1133,7 +1133,7 @@ namespace daxa
 
                 if(!work_code.starts_with(";"))
                 {
-                    result.error_message = std::format("Expected ';' after member declaration of '{}' in struct '{}', got \"{}...\"", member_name, struct_name, work_code.substr(0, std::min(work_code.size(), 20ull)));
+                    result.error_message = std::format("Expected ';' after member declaration of '{}' in struct '{}', got \"{}...\"", member_name, struct_name, work_code.substr(0, std::min(work_code.size(), 20ul)));
                     return result;
                 }
                 work_code = work_code.substr(1);
