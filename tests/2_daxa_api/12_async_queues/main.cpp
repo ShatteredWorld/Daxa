@@ -38,7 +38,7 @@
 ///   * daxa has two command recorders
 ///   * CommandRecorder
 ///     * can record any non raster command
-///     * mind that the commands that can be recorded are restricted to the recorders queue family type
+///     * mind that the commands that can be recorded are restricted to the recorders queue type type
 ///   * RenderCommandRecorder
 ///     * can record commands that are only valid within a renderpass
 ///     * created by generic command recorder
@@ -72,26 +72,26 @@ namespace tests
         daxa::Instance instance = daxa::create_instance({});
         daxa::Device device = instance.create_device_2(instance.choose_device({}, daxa::DeviceInfo2{}));
         
-        daxa::u32 compute_queue_count = device.queue_count(daxa::QueueFamily::COMPUTE);
-        daxa::u32 transfer_queue_count = device.queue_count(daxa::QueueFamily::TRANSFER);
+        daxa::u32 compute_queue_count = device.queue_count(daxa::QueueType::COMPUTE);
+        daxa::u32 transfer_queue_count = device.queue_count(daxa::QueueType::TRANSFER);
         std::cout << "Device has " << compute_queue_count << " async compute and " << transfer_queue_count << " async transfer queues.\n";
         std::cout << "Daxa's maximum for async compute queues is 8 and daxa's maximum for async transfer queues is 2.\n";
 
         device.queue_wait_idle(daxa::QUEUE_MAIN);
         for (daxa::u32 queue = 0; queue < compute_queue_count; ++queue)
         {
-            device.queue_wait_idle(daxa::Queue{daxa::QueueFamily::COMPUTE, queue});
+            device.queue_wait_idle(daxa::Queue{daxa::QueueType::COMPUTE, queue});
         }     
         for (daxa::u32 queue = 0; queue < transfer_queue_count; ++queue)
         {
-            device.queue_wait_idle(daxa::Queue{daxa::QueueFamily::TRANSFER, queue});
+            device.queue_wait_idle(daxa::Queue{daxa::QueueType::TRANSFER, queue});
         }   
 
         bool found_error = false;
         try
         {
             /// NOTE: This should fail. This is an intentional error.
-            device.queue_wait_idle(daxa::Queue{daxa::QueueFamily::COMPUTE, 800});
+            device.queue_wait_idle(daxa::Queue{daxa::QueueType::COMPUTE, 800});
         }  
         catch(std::runtime_error e)
         {
@@ -117,16 +117,16 @@ namespace tests
 
         constexpr daxa::u32 initial_value = 42u;
         // Make buffer for a u32[4] array and write some data into the first element
-        auto buffer = device.create_buffer(daxa::BufferInfo{.size = sizeof(daxa::u32) * 4, .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, .name = "buffer"});
+        auto buffer = device.create_buffer(daxa::BufferInfo{.size = sizeof(daxa::u32) * 4, .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, .name = "buffer"});
         *device.buffer_host_address_as<daxa::u32>(buffer).value() = initial_value;    
 
         {
             // Copy from index 0 to index 1
-            // Command recorders queue family MUST match the queue it is submitted to.
+            // Command recorders queue type MUST match the queue it is submitted to.
             // Commands for a transfer queue MUST ONLY be recorded by a transfer command recorder!
             // A generic or compute command recorder can not record commands for a transfer queue!
             // Tho transfer command recorders CAN record commands for any queue.
-            auto rec = device.create_command_recorder({daxa::QueueFamily::TRANSFER});
+            auto rec = device.create_command_recorder({daxa::QueueType::TRANSFER});
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
             rec.copy_buffer_to_buffer({
                 .src_buffer = buffer,
@@ -146,10 +146,10 @@ namespace tests
 
         {
             // Copy from index 1 to index 2
-            // Command recorders queue family MUST match the queue it is submitted to.
+            // Command recorders queue type MUST match the queue it is submitted to.
             // Commands for a compute queue can only be recorded by a compute or a transfer command recorder!
             // A generic command recorder is not allowed to record commands for a compute queue!
-            auto rec = device.create_command_recorder({daxa::QueueFamily::COMPUTE});
+            auto rec = device.create_command_recorder({daxa::QueueType::COMPUTE});
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_READ_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
             rec.copy_buffer_to_buffer({
                 .src_buffer = buffer,
@@ -172,7 +172,7 @@ namespace tests
             // Copy from index 2 to index 3
             // Any command recorder type can be used to submit commands to the main queue.
             auto rec = device.create_command_recorder({
-                // daxa::QueueFamily::MAIN // The default is the main queue family
+                // daxa::QueueType::MAIN // The default is the main queue type
                 // The Queue MUST be main here as its a generic command recorder
             });
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_READ_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
@@ -218,18 +218,18 @@ namespace tests
 
         constexpr daxa::u32 initial_value = 42u;
         // Make buffer for a u32[4] array and write some data into the first element
-        auto buffer = device.create_buffer(daxa::BufferInfo{.size = sizeof(daxa::u32) * 4, .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, .name = "buffer"});
+        auto buffer = device.create_buffer(daxa::BufferInfo{.size = sizeof(daxa::u32) * 4, .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM, .name = "buffer"});
         *device.buffer_host_address_as<daxa::u32>(buffer).value() = initial_value;    
 
         // Instead of semaphores, this test is using submit indices to synchronize queues
         std::pair<daxa::Queue, daxa::u64> transfer_submit_index = {};
         {
             // Copy from index 0 to index 1
-            // Command recorders queue family MUST match the queue it is submitted to.
+            // Command recorders queue type MUST match the queue it is submitted to.
             // Commands for a transfer queue MUST ONLY be recorded by a transfer command recorder!
             // A generic or compute command recorder can not record commands for a transfer queue!
             // Tho transfer command recorders CAN record commands for any queue.
-            auto rec = device.create_command_recorder({daxa::QueueFamily::TRANSFER});
+            auto rec = device.create_command_recorder({daxa::QueueType::TRANSFER});
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
             rec.copy_buffer_to_buffer({
                 .src_buffer = buffer,
@@ -251,10 +251,10 @@ namespace tests
         std::pair<daxa::Queue, daxa::u64> comp1_submit_index = {};
         {
             // Copy from index 1 to index 2
-            // Command recorders queue family MUST match the queue it is submitted to.
+            // Command recorders queue type MUST match the queue it is submitted to.
             // Commands for a compute queue can only be recorded by a compute or a transfer command recorder!
             // A generic command recorder is not allowed to record commands for a compute queue!
-            auto rec = device.create_command_recorder({daxa::QueueFamily::COMPUTE});
+            auto rec = device.create_command_recorder({daxa::QueueType::COMPUTE});
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_READ_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
             rec.copy_buffer_to_buffer({
                 .src_buffer = buffer,
@@ -279,7 +279,7 @@ namespace tests
             // Copy from index 2 to index 3
             // Any command recorder type can be used to submit commands to the main queue.
             auto rec = device.create_command_recorder({
-                // daxa::QueueFamily::MAIN // The default is the main queue family
+                // daxa::QueueType::MAIN // The default is the main queue type
                 // The Queue MUST be main here as its a generic command recorder
             });
             rec.pipeline_barrier({daxa::AccessConsts::TRANSFER_READ_WRITE, daxa::AccessConsts::TRANSFER_READ_WRITE});
@@ -347,7 +347,7 @@ namespace tests
                 });
                 render_recorder.set_rasterization_samples(daxa::RasterizationSamples::E4);
                 render_recorder.set_pipeline(*pipeline);
-                render_recorder.draw_mesh_tasks(1, 1, 1);
+                render_recorder.draw_mesh_tasks({1u, 1u, 1u});
                 ti.recorder = std::move(render_recorder).end_renderpass();
             }
         };
@@ -449,8 +449,8 @@ namespace tests
                 .name = "loop",
             });
 
-            loop_task_graph.use_persistent_image(task_swapchain_image);
-            loop_task_graph.use_persistent_image(trender_image);
+            loop_task_graph.register_image(task_swapchain_image);
+            loop_task_graph.register_image(trender_image);
 
             // And a task to draw to the screen
             loop_task_graph.add_task(DrawTask{
@@ -489,7 +489,7 @@ namespace tests
                 loop_task_graph.execute({});
                 device.collect_garbage();
                 {
-                    auto rec = device.create_command_recorder({daxa::QueueFamily::COMPUTE});
+                    auto rec = device.create_command_recorder({daxa::QueueType::COMPUTE});
                     auto cmds = rec.complete_current_commands();
                     device.submit_commands({
                         .queue = daxa::QUEUE_COMPUTE_0, 

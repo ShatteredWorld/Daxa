@@ -4,8 +4,6 @@
 #include <daxa/utils/imgui.hpp>
 #include <daxa/utils/imgui.hpp>
 
-#if DAXA_ENABLE_TASK_GRAPH_MK2
-
 #include "impl_resource_viewer.hpp"
 #include <set>
 #include <optional>
@@ -80,11 +78,10 @@ namespace daxa
         std::optional<ImageViewerLimits> boardcast_image_viewer_limits = {};
         std::unordered_map<std::string, ResourceViewerState> resource_viewer_states = {};
         std::shared_ptr<daxa::ComputePipeline> resource_viewer_pipeline = {};
-        SamplerId resource_viewer_sampler_id = {};
+        SamplerId resource_viewer_sampler = {};
         
         static void zero_ref_callback(ImplHandle const * handle);
     };
 }
 
-#endif
 #endif

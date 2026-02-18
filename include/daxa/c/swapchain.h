@@ -51,7 +51,7 @@ typedef struct
     VkSurfaceTransformFlagBitsKHR present_operation;
     daxa_ImageUsageFlags image_usage;
     size_t max_allowed_frames_in_flight;
-    daxa_QueueFamily queue_family;
+    daxa_QueueType queue_type;
     daxa_SmallString name;
 } daxa_SwapchainInfo;
 
@@ -69,7 +69,7 @@ daxa_swp_set_present_mode(daxa_Swapchain swapchain, VkPresentModeKHR present_mod
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
 daxa_swp_wait_for_next_frame(daxa_Swapchain swapchain);
 DAXA_EXPORT DAXA_NO_DISCARD daxa_Result
-daxa_swp_acquire_next_image(daxa_Swapchain swapchain, daxa_ImageId * out_image_id);
+daxa_swp_acquire_next_image(daxa_Swapchain swapchain, daxa_ImageId * out_image);
 DAXA_EXPORT daxa_BinarySemaphore *
 daxa_swp_current_acquire_semaphore(daxa_Swapchain swapchain);
 DAXA_EXPORT daxa_BinarySemaphore *

@@ -94,9 +94,9 @@ namespace tests
             daxa::TaskBuffer task_mipmapping_gpu_input_buffer = [&]()
             {
                 auto ret = daxa::TaskBuffer{{
+                    .buffer = mipmapping_gpu_input_buffer,
                     .name = "task_mipmapping_gpu_input_buffer",
                 }};
-                ret.set_buffers(daxa::TrackedBuffers{.buffers = std::span{execution_buffers.data(), execution_buffers.size()}});
                 return ret;
             }();
 
@@ -203,7 +203,7 @@ namespace tests
             {
                 auto staging_buffer = device.create_buffer({
                     .size = sizeof(MipmappingGpuInput),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "staging_mipmapping_gpu_input_buffer",
                 });
                 MipmappingGpuInput * buffer_ptr = device.buffer_host_address_as<MipmappingGpuInput>(staging_buffer).value();
@@ -233,7 +233,7 @@ namespace tests
             void draw_ui(daxa::CommandRecorder & recorder, daxa::ImageId render_target_id)
             {
                 auto render_size = device.image_info(render_target_id).value().size;
-                imgui_renderer.record_commands(ImGui::GetDrawData(), recorder, render_target_id, render_size.x, render_size.y);
+                imgui_renderer.record_commands({ImGui::GetDrawData(), recorder, render_target_id, render_size.x, render_size.y});
             }
             void blit_image_to_swapchain(daxa::CommandRecorder & recorder, daxa::ImageId src_image_id, daxa::ImageId dst_image_id)
             {
@@ -294,7 +294,7 @@ namespace tests
 
                 recorder.pipeline_image_barrier({
                     .dst_access = daxa::AccessConsts::TRANSFER_WRITE,
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                     .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
                 });
                 recorder.clear_image({
@@ -314,7 +314,7 @@ namespace tests
                 recorder.pipeline_image_barrier({
                     .src_access = daxa::AccessConsts::NONE,
                     .dst_access = daxa::AccessConsts::COMPUTE_SHADER_WRITE,
-                    .image_id = render_image,
+                    .image = render_image,
                     .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
                 });
                 recorder.pipeline_barrier({
@@ -329,7 +329,7 @@ namespace tests
                     recorder.pipeline_image_barrier({
                         .src_access = daxa::AccessConsts::NONE,
                         .dst_access = daxa::AccessConsts::TRANSFER_WRITE,
-                        .image_id = render_image,
+                        .image = render_image,
                         .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
                     });
 
@@ -338,7 +338,7 @@ namespace tests
                         recorder.pipeline_image_barrier({
                             .src_access = (i == 0 ? daxa::AccessConsts::COMPUTE_SHADER_WRITE : daxa::AccessConsts::TRANSFER_WRITE),
                             .dst_access = daxa::AccessConsts::BLIT_READ,
-                            .image_id = render_image,
+                            .image = render_image,
                         });
                         std::array<i32, 3> next_mip_size = {std::max<i32>(1, mip_size[0] / 2), std::max<i32>(1, mip_size[1] / 2), std::max<i32>(1, mip_size[2] / 2)};
                         recorder.blit_image_to_image({
@@ -363,25 +363,25 @@ namespace tests
                     recorder.pipeline_image_barrier({
                         .src_access = daxa::AccessConsts::TRANSFER_WRITE,
                         .dst_access = daxa::AccessConsts::TRANSFER_READ,
-                        .image_id = render_image,
+                        .image = render_image,
                     });
                 }
                 recorder.pipeline_image_barrier({
                     .src_access = daxa::AccessConsts::TRANSFER_WRITE,
                     .dst_access = daxa::AccessConsts::TRANSFER_WRITE,
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                 });
                 blit_image_to_swapchain(recorder, render_image, swapchain_image);
                 recorder.pipeline_image_barrier({
                     .src_access = daxa::AccessConsts::TRANSFER_WRITE,
                     .dst_access = daxa::AccessConsts::COLOR_ATTACHMENT_OUTPUT_READ_WRITE,
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                 });
                 draw_ui(recorder, swapchain_image);
                 recorder.pipeline_image_barrier({
                     .src_access = daxa::AccessConsts::COLOR_ATTACHMENT_OUTPUT_READ_WRITE,
                     .dst_access = {.stages = daxa::PipelineStageFlagBits::BOTTOM_OF_PIPE, .type = daxa::AccessTypeFlagBits::NONE},
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                     .layout_operation = daxa::ImageLayoutOperation::TO_PRESENT_SRC,
                 });
                 device.submit_commands({
@@ -408,9 +408,9 @@ namespace tests
                     .record_debug_information = true,
                     .name = "main task graph",
                 });
-                new_task_graph.use_persistent_image(task_swapchain_image);
-                new_task_graph.use_persistent_buffer(task_mipmapping_gpu_input_buffer);
-                new_task_graph.use_persistent_image(task_render_image);
+                new_task_graph.register_image(task_swapchain_image);
+                new_task_graph.register_buffer(task_mipmapping_gpu_input_buffer);
+                new_task_graph.register_image(task_render_image);
 
                 using namespace daxa;
 

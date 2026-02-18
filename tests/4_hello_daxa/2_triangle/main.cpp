@@ -140,7 +140,7 @@ auto main() -> int
     // a buffer with the device.
     daxa::BufferId vertex_buffer = device.create_buffer({
         .size = sizeof(MyVertex) * 3,
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Will allocate buffer in host visible vram
+        .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Will allocate buffer in host visible vram
         .name = "vertex buffer",
     });
 
@@ -190,7 +190,7 @@ auto main() -> int
             // This tutorial shows both these transitions.
             recorder.pipeline_image_barrier({
                 .dst_access = daxa::AccessConsts::COLOR_ATTACHMENT_OUTPUT_READ_WRITE,
-                .image_id = swapchain_image,
+                .image = swapchain_image,
                 .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
             });
 
@@ -224,7 +224,7 @@ auto main() -> int
 
             recorder.pipeline_image_barrier({
                 .src_access = daxa::AccessConsts::COLOR_ATTACHMENT_OUTPUT_READ_WRITE,
-                .image_id = swapchain_image,
+                .image = swapchain_image,
                 .layout_operation = daxa::ImageLayoutOperation::TO_PRESENT_SRC,
             });
 

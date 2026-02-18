@@ -2,7 +2,6 @@
 
 #include "../impl_core.hpp"
 #include <daxa/utils/pipeline_manager.hpp>
-#include <daxa/c/utils/pipeline_manager.h>
 
 struct daxa_PipelineManagerImpl
 {

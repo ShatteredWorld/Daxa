@@ -96,8 +96,8 @@ struct App : BaseApp<App>
 
         ImGui::Image(
             imgui_renderer.create_texture_id({
-                .image_view_id = render_image.default_view(),
-                .sampler_id = sampler,
+                .image_view = render_image.default_view(),
+                .sampler = sampler,
             }),
             ImVec2(200, 200));
 
@@ -161,8 +161,8 @@ struct App : BaseApp<App>
 
     void record_tasks(daxa::TaskGraph & new_task_graph)
     {
-        new_task_graph.use_persistent_image(task_render_image);
-        new_task_graph.use_persistent_buffer(task_gpu_input_buffer);
+        new_task_graph.register_image(task_render_image);
+        new_task_graph.register_buffer(task_gpu_input_buffer);
 
         imgui_task_attachments.push_back(daxa::inl_attachment(daxa::TaskAccessConsts::FRAGMENT_SHADER::READ, task_render_image));
 
@@ -182,7 +182,7 @@ struct App : BaseApp<App>
                 });
                 auto staging_gpu_input_buffer = device.create_buffer({
                     .size = sizeof(GpuInput),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("staging_gpu_input_buffer"),
                 });
                 ti.recorder.destroy_buffer_deferred(staging_gpu_input_buffer);

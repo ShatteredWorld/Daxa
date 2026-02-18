@@ -1,12 +1,10 @@
 #if DAXA_BUILT_WITH_UTILS_TASK_GRAPH && DAXA_BUILT_WITH_UTILS_IMGUI
 #include <daxa/utils/task_graph_types.hpp>
 
-#if DAXA_ENABLE_TASK_GRAPH_MK2
-
 #include <daxa/utils/imgui.hpp>
 #include <imgui_internal.h>
 #include <implot.h>
-#include "impl_task_graph_mk2.hpp"
+#include "impl_task_graph.hpp"
 #include "impl_task_graph_ui.hpp"
 #include "impl_resource_viewer.slang"
 
@@ -505,13 +503,13 @@ namespace daxa
                 }
                 if (attachment_info.type == TaskAttachmentType::IMAGE)
                 {
-                    ImageId image_id = ti.id(TaskImageAttachmentIndex{attach_i});
+                    ImageId image = ti.id(TaskImageAttachmentIndex{attach_i});
                     {
                         ti.recorder.pipeline_barrier(daxa::BarrierInfo{
                             .src_access = daxa::AccessConsts::READ_WRITE,
                             .dst_access = daxa::AccessConsts::READ_WRITE,
                         });
-                        ti.recorder.clear_image({.dst_image = image_id});
+                        ti.recorder.clear_image({.image = image});
                         ti.recorder.pipeline_barrier(daxa::BarrierInfo{
                             .src_access = daxa::AccessConsts::READ_WRITE,
                             .dst_access = daxa::AccessConsts::READ_WRITE,
@@ -524,6 +522,12 @@ namespace daxa
             {
                 continue;
             }
+
+            if (resource->access_timeline.size() == 0)
+            {
+                continue;
+            }
+            state.timeline_index = std::min(state.timeline_index, static_cast<i32>(resource->access_timeline.size()) - 1);
 
             if (task.attachment_access_groups[attach_i].first != &resource->access_timeline[state.timeline_index])
             {
@@ -569,7 +573,7 @@ namespace daxa
                         }
                         state.buffer.clone_buffer = context.device.create_buffer({
                             .size = buffer_info.size,
-                            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Want it in vram
+                            .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Want it in vram
                             .name = std::format("{}::viewer::clone_buffer", resource->name),
                         });
                     }
@@ -600,14 +604,14 @@ namespace daxa
 
                         {
                             // Attempt to increment reference counter.
-                            bool success = context.device.inc_refcnt_buffer(child_viewer.second.buffer);
-                            if (!success)
-                            {
-                                continue;
-                            }
-
-                            // This will decrement the refcount once the command buffer finished on the gpu.
-                            ti.recorder.destroy_buffer_deferred(child_viewer.second.buffer);
+                            //bool success = context.device.inc_refcnt_buffer(child_viewer.second.buffer);
+                            //if (!success)
+                            //{
+                            //    continue;
+                            //}
+//
+                            //// This will decrement the refcount once the command buffer finished on the gpu.
+                            //ti.recorder.destroy_buffer_deferred(child_viewer.second.buffer);
                         }
 
                         BufferInfo child_buffer_info = context.device.buffer_info(child_viewer.second.buffer).value();
@@ -640,7 +644,7 @@ namespace daxa
                             }
                             child_viewer.second.clone_buffer = context.device.create_buffer({
                                 .size = child_buffer_info.size,
-                                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Want it in vram
+                                .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE, // Want it in vram
                                 .name = std::format("{}::viewer::clone_buffer", child_buffer_info.name.c_str()),
                             });
                         }
@@ -1373,9 +1377,18 @@ namespace daxa
                             state.image.display_value_range_initialized = true;
                         }
                         ImGui::SetNextItemWidth(160);
-                        f64 values[2] = {static_cast<f64>(state.image.min_display_value._f32), static_cast<f64>(state.image.max_display_value._f32)};
-                        f64 min_values[2] = {static_cast<f64>(min_f32), static_cast<f64>(min_f32)};
-                        f64 max_values[2] = {static_cast<f64>(max_f32), static_cast<f64>(max_f32)};
+                        f64 values[2] = { 
+                            std::clamp(static_cast<f64>(state.image.min_display_value._f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                            std::clamp(static_cast<f64>(state.image.max_display_value._f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                        };
+                        f64 min_values[2] = {
+                            std::clamp(static_cast<f64>(min_f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                            std::clamp(static_cast<f64>(min_f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                        };
+                        f64 max_values[2] = {
+                            std::clamp(static_cast<f64>(max_f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                            std::clamp(static_cast<f64>(max_f32), std::numeric_limits<f64>::lowest() / 3, std::numeric_limits<f64>::max() / 3), 
+                        };
                         ImGui::SliderScalarN("Display Range", ImGuiDataType_Double, values, 2, min_values, max_values);
                         state.image.min_display_value._f32 = static_cast<f32>(values[0]);
                         state.image.max_display_value._f32 = static_cast<f32>(values[1]);
@@ -1435,8 +1448,8 @@ namespace daxa
                     if (!state.image.display_image.is_empty())
                     {
                         state.image.imgui_image_id = context.imgui_renderer.create_texture_id({
-                            .image_view_id = state.image.display_image.default_view(),
-                            .sampler_id = context.resource_viewer_sampler_id,
+                            .image_view = state.image.display_image.default_view(),
+                            .sampler = context.resource_viewer_sampler,
                         });
                         ImPlot::PushStyleVar(ImPlotStyleVar_PlotBorderSize, 2);
                         ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.0f, 0.0f));
@@ -1892,7 +1905,7 @@ namespace daxa
                                 auto result = context.device.buffer_device_address_to_buffer(std::bit_cast<DeviceAddress>(address));
                                 if (result.has_value())
                                 {
-                                    BufferId child_buffer = result.value().buffer_id;
+                                    BufferId child_buffer = result.value().buffer;
                                     BufferInfo const info = context.device.info(child_buffer).value();
                                     printf("Belongs to buffer %s\n", info.name.c_str());
 
@@ -2179,5 +2192,4 @@ namespace daxa
     }
 } // namespace daxa
 
-#endif
 #endif

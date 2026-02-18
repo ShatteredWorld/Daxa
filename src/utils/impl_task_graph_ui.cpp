@@ -3,13 +3,13 @@
 
 #define TASK_GRAPH_RESOURCE_VIEWER_ONLINE_COMPILE_SHADERS 1
 
-#if DAXA_BUILT_WITH_UTILS_IMGUI && DAXA_ENABLE_TASK_GRAPH_MK2
+#if DAXA_BUILT_WITH_UTILS_IMGUI
 
 #include "impl_task_graph_ui.hpp"
 #include <daxa/utils/imgui.hpp>
 #include <imgui_internal.h>
 #include <implot.h>
-#include "impl_task_graph_mk2.hpp"
+#include "impl_task_graph.hpp"
 #include <filesystem>
 
 #if TASK_GRAPH_RESOURCE_VIEWER_ONLINE_COMPILE_SHADERS
@@ -239,7 +239,7 @@ namespace daxa
                 ui_context.resource_viewer_states[std::string(resource.name)].image.readback_buffer = ui_context.device.create_buffer({
                     .size = sizeof(TaskGraphDebugUiImageReadbackStruct) * READBACK_CIRCULAR_BUFFER_SIZE,
                     // We perform atomics on the readback buffer so we want the memory to be on the GPU even though it is still read by the CPU.
-                    .allocate_info = MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
+                    .memory_flags = MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
                     .name = std::format("{} readback buffer", resource.name),
                 });
             }
@@ -272,13 +272,13 @@ namespace daxa
         }
     }
 
-    auto queue_family_to_str(QueueFamily queue_family) -> char const *
+    auto queue_type_to_str(QueueType queue_type) -> char const *
     {
-        switch (queue_family)
+        switch (queue_type)
         {
-        case QueueFamily::MAIN: return "GN";
-        case QueueFamily::COMPUTE: return "CT";
-        case QueueFamily::TRANSFER: return "TF";
+        case QueueType::MAIN: return "GN";
+        case QueueType::COMPUTE: return "CT";
+        case QueueType::TRANSFER: return "TF";
         default: return "UNKNOWN";
         }
     }
@@ -337,14 +337,14 @@ namespace daxa
         return ret;
     }
 
-    auto queue_family_to_color(QueueFamily type) -> ImVec4
+    auto queue_type_to_color(QueueType type) -> ImVec4
     {
         ImVec4 ret = {};
         switch (type)
         {
-        case QueueFamily::MAIN: ret = ImVec4(0.47060f, 0.52941f, 0.61960f, 1.0f); break;     //           #8D99AE
-        case QueueFamily::COMPUTE: ret = ImVec4(0.95500f, 0.58500f, 0.09300f, 1.0f); break;  //        #F9C74F
-        case QueueFamily::TRANSFER: ret = ImVec4(0.03112f, 0.78413f, 0.60552f, 1.0f); break; //       #06D6A0
+        case QueueType::MAIN: ret = ImVec4(0.47060f, 0.52941f, 0.61960f, 1.0f); break;     //           #8D99AE
+        case QueueType::COMPUTE: ret = ImVec4(0.95500f, 0.58500f, 0.09300f, 1.0f); break;  //        #F9C74F
+        case QueueType::TRANSFER: ret = ImVec4(0.03112f, 0.78413f, 0.60552f, 1.0f); break; //       #06D6A0
         }
         // ret.x = std::sqrt(ret.x);
         // ret.y = std::sqrt(ret.y);
@@ -1050,12 +1050,12 @@ namespace daxa
                 ImGui::TableNextColumn();
                 ImGui::Text("Queue");
                 ImGui::TableNextColumn();
-                ImVec4 const queue_family_color = queue_family_to_color(task.queue.family);
+                ImVec4 const queue_type_color = queue_type_to_color(task.queue.type);
                 colored_banner_text(
-                    std::format("Family {} - Index {}", queue_family_to_str(task.queue.family), task.queue.index),
+                    std::format("Type {} - Index {}", queue_type_to_str(task.queue.type), task.queue.index),
                     true,
-                    queue_family_color,
-                    ImVec4(queue_family_color.x * 0.6f, queue_family_color.y * 0.6f, queue_family_color.z * 0.6f, 1.0f));
+                    queue_type_color,
+                    ImVec4(queue_type_color.x * 0.6f, queue_type_color.y * 0.6f, queue_type_color.z * 0.6f, 1.0f));
 
                 ImGui::EndTable();
             }
@@ -1331,7 +1331,7 @@ namespace daxa
                         device_address = ui_context.device.buffer_device_address(id).value_or(0);
                         host_address = std::bit_cast<u64>(ui_context.device.buffer_host_address(id).value_or(0));
                         external_resource_name = info.name;
-                        memory_flags = info.allocate_info;
+                        memory_flags = info.memory_flags;
                         break;
                     }
                     case TaskResourceKind::BLAS:
@@ -2039,8 +2039,8 @@ namespace daxa
                     ImVec4 color = {};
                     if (col_ui.is_queue_submit_border)
                     {
-                        name = queue_family_to_str(queue_index_to_queue(col_ui.queue_index).family);
-                        color = queue_family_to_color(queue_index_to_queue(col_ui.queue_index).family);
+                        name = queue_type_to_str(queue_index_to_queue(col_ui.queue_index).type);
+                        color = queue_type_to_color(queue_index_to_queue(col_ui.queue_index).type);
                         color.x *= 0.6f;
                         color.y *= 0.6f;
                         color.z *= 0.6f;
@@ -2273,7 +2273,7 @@ namespace daxa
                                         if (ImGui::BeginItemTooltip())
                                         {
                                             TaskAttachmentInfo const & attach_info = col_ui.task->attachments[attachment_index];
-                                            ImGui::Text(std::format("Attachment name: {}", attach_info.name()).c_str());
+                                            ImGui::Text(std::format("Attachment name: {}", attach_info.value.common.name).c_str());
                                             ImGui::EndTooltip();
                                         }
                                         make_cell_darker = false;
@@ -2337,9 +2337,9 @@ namespace daxa
             }
         }
 
-        DAXA_DBG_ASSERT_TRUE_M(ui_context.resource_viewer_sampler_id.is_empty(), "IMPOSSIBLE CASE! The UI cannot already ahve a sampler created");
+        DAXA_DBG_ASSERT_TRUE_M(ui_context.resource_viewer_sampler.is_empty(), "IMPOSSIBLE CASE! The UI cannot already ahve a sampler created");
         {
-            ui_context.resource_viewer_sampler_id = ui_context.device.create_sampler({
+            ui_context.resource_viewer_sampler = ui_context.device.create_sampler({
                 .magnification_filter = Filter::NEAREST,
                 .minification_filter = Filter::NEAREST,
             });
@@ -2412,7 +2412,7 @@ namespace daxa
 
     ImplTaskGraphDebugUi::~ImplTaskGraphDebugUi()
     {
-        this->device.destroy_sampler(this->resource_viewer_sampler_id);
+        this->device.destroy_sampler(this->resource_viewer_sampler);
 
         for (auto av_iter = this->resource_viewer_states.begin(); av_iter != this->resource_viewer_states.end();)
         {
@@ -2579,5 +2579,5 @@ namespace daxa
     }
 } // namespace daxa
 
-#endif // #if DAXA_BUILT_WITH_UTILS_IMGUI && DAXA_ENABLE_TASK_GRAPH_MK2
+#endif // #if DAXA_BUILT_WITH_UTILS_IMGUI
 #endif

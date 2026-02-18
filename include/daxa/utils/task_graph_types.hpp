@@ -20,8 +20,6 @@
 #include <daxa/device.hpp>
 #include <daxa/utils/mem.hpp>
 
-#define DAXA_ENABLE_TASK_GRAPH_MK2 1
-
 namespace daxa
 {
     static inline constexpr usize MAX_TASK_ATTACHMENTS = 48;
@@ -77,7 +75,7 @@ namespace daxa
     inline auto is_access_concurrent(TaskAccessType type) -> bool
     {
         return (static_cast<u8>(type) & static_cast<u8>(TaskAccessType::CONCURRENT_BIT)) != 0;
-    } 
+    }
 
     inline auto are_accesses_compatible(TaskAccessType a, TaskAccessType b) -> bool
     {
@@ -86,14 +84,14 @@ namespace daxa
         return (a_sampled_ignored == b_sampled_ignored) && is_access_concurrent(a) && is_access_concurrent(b);
     }
 
-    auto to_string(TaskAccessType taccess) -> std::string_view;
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskAccessType taccess) -> std::string_view;
 
     auto to_access_type(TaskAccessType taccess) -> AccessTypeFlags;
 
-    enum struct TaskStage : u64
+    enum struct TaskStages : u64
     {
         NONE = (PipelineStageFlagBits::NONE).data,
-        INDIRECT_COMMAND = (PipelineStageFlagBits::DRAW_INDIRECT).data,
+        INDIRECT_COMMAND_READ = (PipelineStageFlagBits::INDIRECT_COMMAND_READ).data,
         VERTEX_SHADER = (PipelineStageFlagBits::VERTEX_SHADER).data,
         TESSELLATION_CONTROL_SHADER = (PipelineStageFlagBits::TESSELLATION_CONTROL_SHADER).data,
         TESSELLATION_EVALUATION_SHADER = (PipelineStageFlagBits::TESSELLATION_EVALUATION_SHADER).data,
@@ -108,7 +106,7 @@ namespace daxa
                                      PipelineStageFlagBits::PipelineStageFlagBits::TASK_SHADER |
                                      PipelineStageFlagBits::PipelineStageFlagBits::MESH_SHADER)
                                         .data,
-        RASTER_SHADER = (PipelineStageFlagBits::PipelineStageFlagBits::ALL_GRAPHICS).data,
+        RASTER_SHADER = (PipelineStageFlagBits::PipelineStageFlagBits::ALL_RASTER).data,
         COMPUTE_SHADER = (PipelineStageFlagBits::COMPUTE_SHADER).data,
         RAY_TRACING_SHADER = (PipelineStageFlagBits::RAY_TRACING_SHADER).data,
         SHADER = (PipelineStageFlagBits::PipelineStageFlagBits::VERTEX_SHADER |
@@ -135,28 +133,28 @@ namespace daxa
         JOKER = 1ull << 63ull,
     };
 
-    constexpr inline TaskStage operator|(TaskStage a, TaskStage b)
+    constexpr inline TaskStages operator|(TaskStages a, TaskStages b)
     {
-        return static_cast<TaskStage>(static_cast<u64>(a) | static_cast<u64>(b));
+        return static_cast<TaskStages>(static_cast<u64>(a) | static_cast<u64>(b));
     }
 
-    constexpr inline TaskStage operator&(TaskStage a, TaskStage b)
+    constexpr inline TaskStages operator&(TaskStages a, TaskStages b)
     {
-        return static_cast<TaskStage>(static_cast<u64>(a) & static_cast<u64>(b));
+        return static_cast<TaskStages>(static_cast<u64>(a) & static_cast<u64>(b));
     }
 
-    constexpr inline TaskStage operator~(TaskStage a)
+    constexpr inline TaskStages operator~(TaskStages a)
     {
-        return static_cast<TaskStage>(~static_cast<u64>(a));
+        return static_cast<TaskStages>(~static_cast<u64>(a));
     }
 
-    auto to_string(TaskStage stage) -> std::string;
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskStages stage) -> std::string;
 
-    auto to_pipeline_stage_flags(TaskStage stage) -> PipelineStageFlags;
+    auto to_pipeline_stage_flags(TaskStages stage) -> PipelineStageFlags;
 
     struct TaskAccess
     {
-        TaskStage stage = {};
+        TaskStages stage = {};
         TaskAccessType type = {};
         TaskAttachmentType restriction = {};
     };
@@ -172,7 +170,7 @@ namespace daxa
 
     [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskAccess const & access) -> std::string;
 
-    template <TaskStage STAGE, TaskAttachmentType ATTACHMENT_TYPE_RESTRICTION = TaskAttachmentType::UNDEFINED>
+    template <TaskStages STAGE, TaskAttachmentType ATTACHMENT_TYPE_RESTRICTION = TaskAttachmentType::UNDEFINED>
     struct TaskAccessConstsPartial
     {
         static constexpr TaskAccess NONE = TaskAccess{};
@@ -192,50 +190,50 @@ namespace daxa
 
     namespace TaskAccessConsts
     {
-        using VERTEX_SHADER = TaskAccessConstsPartial<TaskStage::VERTEX_SHADER>;
+        using VERTEX_SHADER = TaskAccessConstsPartial<TaskStages::VERTEX_SHADER>;
         using VS = VERTEX_SHADER;
-        using TESSELLATION_CONTROL_SHADER = TaskAccessConstsPartial<TaskStage::TESSELLATION_CONTROL_SHADER>;
+        using TESSELLATION_CONTROL_SHADER = TaskAccessConstsPartial<TaskStages::TESSELLATION_CONTROL_SHADER>;
         using TCS = TESSELLATION_CONTROL_SHADER;
-        using TESSELLATION_EVALUATION_SHADER = TaskAccessConstsPartial<TaskStage::TESSELLATION_EVALUATION_SHADER>;
+        using TESSELLATION_EVALUATION_SHADER = TaskAccessConstsPartial<TaskStages::TESSELLATION_EVALUATION_SHADER>;
         using TES = TESSELLATION_EVALUATION_SHADER;
-        using GEOMETRY_SHADER = TaskAccessConstsPartial<TaskStage::GEOMETRY_SHADER>;
+        using GEOMETRY_SHADER = TaskAccessConstsPartial<TaskStages::GEOMETRY_SHADER>;
         using GS = GEOMETRY_SHADER;
-        using FRAGMENT_SHADER = TaskAccessConstsPartial<TaskStage::FRAGMENT_SHADER>;
+        using FRAGMENT_SHADER = TaskAccessConstsPartial<TaskStages::FRAGMENT_SHADER>;
         using FS = FRAGMENT_SHADER;
-        using COMPUTE_SHADER = TaskAccessConstsPartial<TaskStage::COMPUTE_SHADER>;
+        using COMPUTE_SHADER = TaskAccessConstsPartial<TaskStages::COMPUTE_SHADER>;
         using CS = COMPUTE_SHADER;
-        using RAY_TRACING_SHADER = TaskAccessConstsPartial<TaskStage::RAY_TRACING_SHADER>;
+        using RAY_TRACING_SHADER = TaskAccessConstsPartial<TaskStages::RAY_TRACING_SHADER>;
         using RT = RAY_TRACING_SHADER;
-        using TASK_SHADER = TaskAccessConstsPartial<TaskStage::TASK_SHADER>;
+        using TASK_SHADER = TaskAccessConstsPartial<TaskStages::TASK_SHADER>;
         using TS = TASK_SHADER;
-        using MESH_SHADER = TaskAccessConstsPartial<TaskStage::MESH_SHADER>;
+        using MESH_SHADER = TaskAccessConstsPartial<TaskStages::MESH_SHADER>;
         using MS = MESH_SHADER;
-        using PRE_RASTERIZATION_SHADERS = TaskAccessConstsPartial<TaskStage::PRE_RASTERIZATION_SHADERS>;
+        using PRE_RASTERIZATION_SHADERS = TaskAccessConstsPartial<TaskStages::PRE_RASTERIZATION_SHADERS>;
         using PRS = PRE_RASTERIZATION_SHADERS;
-        using RASTER_SHADER = TaskAccessConstsPartial<TaskStage::RASTER_SHADER>;
+        using RASTER_SHADER = TaskAccessConstsPartial<TaskStages::RASTER_SHADER>;
         using RS = RASTER_SHADER;
-        using SHADER = TaskAccessConstsPartial<TaskStage::SHADER>;
+        using SHADER = TaskAccessConstsPartial<TaskStages::SHADER>;
         using S = SHADER;
-        using DEPTH_STENCIL_ATTACHMENT = TaskAccessConstsPartial<TaskStage::DEPTH_STENCIL_ATTACHMENT, TaskAttachmentType::IMAGE>;
+        using DEPTH_STENCIL_ATTACHMENT = TaskAccessConstsPartial<TaskStages::DEPTH_STENCIL_ATTACHMENT, TaskAttachmentType::IMAGE>;
         using DSA = DEPTH_STENCIL_ATTACHMENT;
-        using RESOLVE = TaskAccessConstsPartial<TaskStage::RESOLVE, TaskAttachmentType::IMAGE>;
-        using TRANSFER = TaskAccessConstsPartial<TaskStage::TRANSFER>;
+        using RESOLVE = TaskAccessConstsPartial<TaskStages::RESOLVE, TaskAttachmentType::IMAGE>;
+        using TRANSFER = TaskAccessConstsPartial<TaskStages::TRANSFER>;
         using TF = TRANSFER;
-        using HOST = TaskAccessConstsPartial<TaskStage::HOST>;
+        using HOST = TaskAccessConstsPartial<TaskStages::HOST>;
         using H = HOST;
-        using ACCELERATION_STRUCTURE_BUILD = TaskAccessConstsPartial<TaskStage::AS_BUILD>;
+        using ACCELERATION_STRUCTURE_BUILD = TaskAccessConstsPartial<TaskStages::AS_BUILD>;
         using ASB = ACCELERATION_STRUCTURE_BUILD;
-        using ANY_COMMAND = TaskAccessConstsPartial<TaskStage::ANY_COMMAND>;
+        using ANY_COMMAND = TaskAccessConstsPartial<TaskStages::ANY_COMMAND>;
         using ANY = ANY_COMMAND;
-        static constexpr TaskAccess NONE = TaskAccess{TaskStage::NONE, TaskAccessType::NONE};
-        static constexpr TaskAccess READ = TaskAccess{TaskStage::JOKER, TaskAccessType::READ};
-        static constexpr TaskAccess WRITE = TaskAccess{TaskStage::JOKER, TaskAccessType::WRITE};
-        static constexpr TaskAccess WRITE_CONCURRENT = TaskAccess{TaskStage::JOKER, TaskAccessType::WRITE_CONCURRENT};
-        static constexpr TaskAccess READ_WRITE = TaskAccess{TaskStage::JOKER, TaskAccessType::READ_WRITE};
-        static constexpr TaskAccess READ_WRITE_CONCURRENT = TaskAccess{TaskStage::JOKER, TaskAccessType::READ_WRITE_CONCURRENT};
-        static constexpr TaskAccess SAMPLED = TaskAccess{TaskStage::JOKER, TaskAccessType::SAMPLED};
+        static constexpr TaskAccess NONE = TaskAccess{TaskStages::NONE, TaskAccessType::NONE};
+        static constexpr TaskAccess READ = TaskAccess{TaskStages::JOKER, TaskAccessType::READ};
+        static constexpr TaskAccess WRITE = TaskAccess{TaskStages::JOKER, TaskAccessType::WRITE};
+        static constexpr TaskAccess WRITE_CONCURRENT = TaskAccess{TaskStages::JOKER, TaskAccessType::WRITE_CONCURRENT};
+        static constexpr TaskAccess READ_WRITE = TaskAccess{TaskStages::JOKER, TaskAccessType::READ_WRITE};
+        static constexpr TaskAccess READ_WRITE_CONCURRENT = TaskAccess{TaskStages::JOKER, TaskAccessType::READ_WRITE_CONCURRENT};
+        static constexpr TaskAccess SAMPLED = TaskAccess{TaskStages::JOKER, TaskAccessType::SAMPLED};
 
-        static constexpr TaskAccess COLOR_ATTACHMENT = TaskAccess{TaskStage::COLOR_ATTACHMENT, TaskAccessType::READ_WRITE, TaskAttachmentType::IMAGE};
+        static constexpr TaskAccess COLOR_ATTACHMENT = TaskAccess{TaskStages::COLOR_ATTACHMENT, TaskAccessType::READ_WRITE, TaskAttachmentType::IMAGE};
         static constexpr TaskAccess CA = COLOR_ATTACHMENT;
 
         static constexpr TaskAccess DEPTH_ATTACHMENT = TaskAccessConsts::DSA::READ_WRITE;
@@ -243,122 +241,10 @@ namespace daxa
         static constexpr TaskAccess DEPTH_ATTACHMENT_READ = TaskAccessConsts::DSA::READ;
         static constexpr TaskAccess STENCIL_ATTACHMENT_READ = TaskAccessConsts::DSA::READ;
 
-        static constexpr TaskAccess INDIRECT_COMMAND_READ = TaskAccess{TaskStage::INDIRECT_COMMAND, TaskAccessType::READ, TaskAttachmentType::BUFFER};
+        static constexpr TaskAccess INDIRECT_COMMAND_READ = TaskAccess{TaskStages::INDIRECT_COMMAND_READ, TaskAccessType::READ, TaskAttachmentType::BUFFER};
         static constexpr TaskAccess ICR = INDIRECT_COMMAND_READ;
-        static constexpr TaskAccess INDEX_INPUT_READ = TaskAccess{TaskStage::INDEX_INPUT, TaskAccessType::READ, TaskAttachmentType::BUFFER};
+        static constexpr TaskAccess INDEX_INPUT_READ = TaskAccess{TaskStages::INDEX_INPUT, TaskAccessType::READ, TaskAttachmentType::BUFFER};
         static constexpr TaskAccess IDXR = INDEX_INPUT_READ;
-
-#if !DAXA_REMOVE_DEPRECATED
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_READ = TaskAccessConsts::RS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_WRITE = TaskAccessConsts::RS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_READ_WRITE = TaskAccessConsts::RS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::RS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_READ = TaskAccessConsts::COMPUTE_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_WRITE = TaskAccessConsts::COMPUTE_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_READ_WRITE = TaskAccessConsts::COMPUTE_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::COMPUTE_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_READ = TaskAccessConsts::RAY_TRACING_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_WRITE = TaskAccessConsts::RAY_TRACING_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_READ_WRITE = TaskAccessConsts::RAY_TRACING_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::RAY_TRACING_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_READ = TaskAccessConsts::TASK_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_WRITE = TaskAccessConsts::TASK_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_READ_WRITE = TaskAccessConsts::TASK_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::TASK_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_READ = TaskAccessConsts::MESH_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_WRITE = TaskAccessConsts::MESH_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_READ_WRITE = TaskAccessConsts::MESH_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::MESH_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_READ = TaskAccessConsts::VERTEX_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_WRITE = TaskAccessConsts::VERTEX_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_READ_WRITE = TaskAccessConsts::VERTEX_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::VERTEX_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_READ = TaskAccessConsts::TESSELLATION_CONTROL_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_WRITE = TaskAccessConsts::TESSELLATION_CONTROL_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_READ_WRITE = TaskAccessConsts::TESSELLATION_CONTROL_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::TESSELLATION_CONTROL_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_READ = TaskAccessConsts::TESSELLATION_EVALUATION_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_WRITE = TaskAccessConsts::TESSELLATION_EVALUATION_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_READ_WRITE = TaskAccessConsts::TESSELLATION_EVALUATION_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::TESSELLATION_EVALUATION_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_READ = TaskAccessConsts::GEOMETRY_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_WRITE = TaskAccessConsts::GEOMETRY_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_READ_WRITE = TaskAccessConsts::GEOMETRY_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::GEOMETRY_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_READ = TaskAccessConsts::FRAGMENT_SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_WRITE = TaskAccessConsts::FRAGMENT_SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_READ_WRITE = TaskAccessConsts::FRAGMENT_SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_READ_WRITE_CONCURRENT = TaskAccessConsts::FRAGMENT_SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess INDEX_READ = TaskAccessConsts::INDEX_INPUT_READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess DRAW_INDIRECT_INFO_READ = TaskAccessConsts::INDIRECT_COMMAND_READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TRANSFER_READ = TaskAccessConsts::TRANSFER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TRANSFER_WRITE = TaskAccessConsts::TRANSFER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TRANSFER_READ_WRITE = TaskAccessConsts::TRANSFER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess HOST_TRANSFER_READ = TaskAccessConsts::HOST::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess HOST_TRANSFER_WRITE = TaskAccessConsts::HOST::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess HOST_TRANSFER_READ_WRITE = TaskAccessConsts::HOST::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess ACCELERATION_STRUCTURE_BUILD_READ = TaskAccessConsts::ACCELERATION_STRUCTURE_BUILD::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess ACCELERATION_STRUCTURE_BUILD_WRITE = TaskAccessConsts::ACCELERATION_STRUCTURE_BUILD::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess ACCELERATION_STRUCTURE_BUILD_READ_WRITE = TaskAccessConsts::ACCELERATION_STRUCTURE_BUILD::READ_WRITE;
-
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess SHADER_SAMPLED = TaskAccessConsts::SHADER::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::SHADER::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess SHADER_STORAGE_READ_ONLY = TaskAccessConsts::SHADER::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess SHADER_STORAGE_READ_WRITE = TaskAccessConsts::SHADER::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::SHADER::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_SAMPLED = TaskAccessConsts::RS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::RS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::RS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::RS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GRAPHICS_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::RS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_SAMPLED = TaskAccessConsts::CS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::CS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::CS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::CS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess COMPUTE_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::CS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_SAMPLED = TaskAccessConsts::RT::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::RT::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::RT::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::RT::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RAY_TRACING_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::RT::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_SAMPLED = TaskAccessConsts::TS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::TS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::TS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::TS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TASK_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::TS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_SAMPLED = TaskAccessConsts::MS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::MS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::MS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::MS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess MESH_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::MS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_SAMPLED = TaskAccessConsts::VS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::VS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::VS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::VS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess VERTEX_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::VS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_SAMPLED = TaskAccessConsts::TCS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::TCS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::TCS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::TCS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_CONTROL_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::TCS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_SAMPLED = TaskAccessConsts::TES::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::TES::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::TES::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::TES::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess TESSELLATION_EVALUATION_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::TES::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_SAMPLED = TaskAccessConsts::GS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::GS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::GS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::GS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess GEOMETRY_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::GS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_SAMPLED = TaskAccessConsts::FS::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_STORAGE_WRITE_ONLY = TaskAccessConsts::FS::WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_STORAGE_READ_ONLY = TaskAccessConsts::FS::READ;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_STORAGE_READ_WRITE = TaskAccessConsts::FS::READ_WRITE;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT = TaskAccessConsts::FS::READ_WRITE_CONCURRENT;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess DEPTH_STENCIL_ATTACHMENT_READ = TaskAccessConsts::DSA::SAMPLED;
-        [[deprecated("Use new TaskAccessConsts instead, API:3.1")]] static constexpr TaskAccess RESOLVE_WRITE = TaskAccessConsts::RESOLVE::READ_WRITE;
-#endif // #if !DAXA_REMOVE_DEPRECATED
     }; // namespace TaskAccessConsts
 
     enum struct TaskType : u16
@@ -371,56 +257,78 @@ namespace daxa
         TRANSFER
     };
 
-    auto to_string(TaskType task_type) -> std::string_view;
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskType task_type) -> std::string_view;
 
-    DAXA_EXPORT_CXX auto task_type_default_stage(TaskType task_type) -> TaskStage;
-
-    using TaskResourceIndex = u32;
+    DAXA_EXPORT_CXX auto task_type_default_stage(TaskType task_type) -> TaskStages;
 
     struct DAXA_EXPORT_CXX TaskGPUResourceView
     {
-        TaskResourceIndex task_graph_index = {};
-        TaskResourceIndex index = {};
+        u32 task_graph_index = {};
+        u32 index = {};
 
-        auto is_empty() const -> bool;
-        auto is_external() const -> bool;
-        auto is_null() const -> bool;
+        auto is_empty() const -> bool { return index == 0 && task_graph_index == 0; }
+        auto is_external() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && !is_null(); }
+        auto is_null() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && index == std::numeric_limits<u32>::max(); }
 
         auto operator<=>(TaskGPUResourceView const & other) const = default;
     };
+    static_assert(std::is_standard_layout_v<TaskGPUResourceView>);
 
     [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskGPUResourceView const & id) -> std::string;
 
-    struct TaskBufferView : public TaskGPUResourceView
-    {
-        using ID_T = BufferId;
-    };
+    struct DAXA_EXPORT_CXX TaskBufferView
+    {        
+        u32 task_graph_index = {};
+        u32 index = {};
 
-    struct TaskBlasView : public TaskGPUResourceView
-    {
-        using ID_T = BlasId;
-    };
+        auto is_empty() const -> bool { return index == 0 && task_graph_index == 0; }
+        auto is_external() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && !is_null(); }
+        auto is_null() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && index == std::numeric_limits<u32>::max(); }
 
-    struct TaskTlasView : public TaskGPUResourceView
-    {
-        using ID_T = TlasId;
+        auto operator<=>(TaskGPUResourceView const & other) const = delete;
+        auto operator<=>(TaskBufferView const & other) const = default;
     };
+    static_assert(std::is_standard_layout_v<TaskBufferView>);
+    static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskBufferView>);
+
+    struct DAXA_EXPORT_CXX TaskBlasView
+    {        
+        u32 task_graph_index = {};
+        u32 index = {};
+
+        auto is_empty() const -> bool { return index == 0 && task_graph_index == 0; }
+        auto is_external() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && !is_null(); }
+        auto is_null() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && index == std::numeric_limits<u32>::max(); }
+
+        auto operator<=>(TaskGPUResourceView const & other) const = delete;
+        auto operator<=>(TaskBlasView const & other) const = default;
+    };
+    static_assert(std::is_standard_layout_v<TaskBlasView>);
+    static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskBlasView>);
+
+    struct DAXA_EXPORT_CXX TaskTlasView
+    {        
+        u32 task_graph_index = {};
+        u32 index = {};
+
+        auto is_empty() const -> bool { return index == 0 && task_graph_index == 0; }
+        auto is_external() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && !is_null(); }
+        auto is_null() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && index == std::numeric_limits<u32>::max(); }
+
+        auto operator<=>(TaskGPUResourceView const & other) const = delete;
+        auto operator<=>(TaskTlasView const & other) const = default;
+    };
+    static_assert(std::is_standard_layout_v<TaskTlasView>);
+    static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskTlasView>);
 
     struct TaskAttachmentInfo;
 
-    struct TaskImageView
+    struct DAXA_EXPORT_CXX TaskImageView
     {
-        TaskResourceIndex task_graph_index = {};
-        TaskResourceIndex index = {};
+        u32 task_graph_index = {};
+        u32 index = {};
         ImageMipArraySlice slice = {};
-#if !DAXA_REMOVE_DEPRECATED
-        [[deprecated("Use .mips and .layers instead, API:3.1")]] auto view(daxa::ImageMipArraySlice const & new_slice) const -> TaskImageView
-        {
-            auto ret = *this;
-            ret.slice = new_slice;
-            return ret;
-        }
-#endif // #if !DAXA_REMOVE_DEPRECATED
+
         auto mips(u32 base_mip_level, u32 level_count = 1) const -> TaskImageView
         {
             auto ret = *this;
@@ -438,19 +346,12 @@ namespace daxa
         auto operator<=>(TaskGPUResourceView const & other) const = delete;
         auto operator<=>(TaskImageView const & other) const = default;
 
-        operator TaskGPUResourceView &()
-        {
-            return *reinterpret_cast<TaskGPUResourceView *>(this);
-        }
-        operator TaskGPUResourceView const &() const
-        {
-            return *reinterpret_cast<TaskGPUResourceView const *>(this);
-        }
-
-        auto is_empty() const -> bool { return operator TaskGPUResourceView const &().is_empty(); }
-        auto is_external() const -> bool { return operator TaskGPUResourceView const &().is_external(); }
-        auto is_null() const -> bool { return operator TaskGPUResourceView const &().is_null(); }
+        auto is_empty() const -> bool { return index == 0 && task_graph_index == 0; }
+        auto is_external() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && !is_null(); }
+        auto is_null() const -> bool { return task_graph_index == std::numeric_limits<u32>::max() && index == std::numeric_limits<u32>::max(); }
     };
+    static_assert(std::is_standard_layout_v<TaskImageView>);
+    // static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskImageView>);
 
 #ifndef __clang__ // MSVC STL does not implement these for clang :/
     // The TaskImageView::operator TaskGPUResourceView const&() const are only valid IF AND ONLY IF:
@@ -469,9 +370,21 @@ namespace daxa
         return ret;
     }();
 
-    static constexpr inline TaskBlasView NullTaskBlas = {NullTaskBuffer};
+    static constexpr inline TaskBlasView NullTaskBlas = []()
+    {
+        TaskBlasView ret = {};
+        ret.task_graph_index = std::numeric_limits<u32>::max();
+        ret.index = std::numeric_limits<u32>::max();
+        return ret;
+    }();
 
-    static constexpr inline TaskTlasView NullTaskTlas = {NullTaskBuffer};
+    static constexpr inline TaskTlasView NullTaskTlas = []()
+    {
+        TaskTlasView ret = {};
+        ret.task_graph_index = std::numeric_limits<u32>::max();
+        ret.index = std::numeric_limits<u32>::max();
+        return ret;
+    }();
 
     static constexpr inline TaskImageView NullTaskImage = []()
     {
@@ -488,12 +401,6 @@ namespace daxa
         ImageMipArraySlice slice = {};
     };
 
-    enum struct TaskHeadImageArrayType : u8
-    {
-        RUNTIME_IMAGES,
-        MIP_LEVELS,
-    };
-
     template <typename T>
     concept TaskBufferIndexOrView = std::is_same_v<T, TaskBufferAttachmentIndex> || std::is_same_v<T, TaskBufferView>;
     template <typename T>
@@ -507,163 +414,11 @@ namespace daxa
     template <typename T>
     concept TaskBufferBlasOrTlasIndexOrView = TaskBufferIndexOrView<T> || TaskBlasIndexOrView<T> || TaskTlasIndexOrView<T>;
 
-    struct UndefinedAttachment
+    enum struct TaskBufferShaderAccessType
     {
-    };
-
-    struct TaskBufferAttachment
-    {
-        using INDEX_TYPE = TaskBufferAttachmentIndex;
-        static constexpr TaskAttachmentType ATTACHMENT_TYPE = TaskAttachmentType::BUFFER;
-        char const * name = {};
-        TaskAccess task_access = {};
-        Access access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
-    };
-
-    struct TaskBlasAttachment
-    {
-        using INDEX_TYPE = TaskBlasAttachmentIndex;
-        static constexpr TaskAttachmentType ATTACHMENT_TYPE = TaskAttachmentType::BLAS;
-        char const * name = {};
-        TaskAccess task_access = {};
-        Access access = {};
-    };
-
-    struct TaskTlasAttachment
-    {
-        using INDEX_TYPE = TaskTlasAttachmentIndex;
-        static constexpr TaskAttachmentType ATTACHMENT_TYPE = TaskAttachmentType::TLAS;
-        char const * name = {};
-        TaskAccess task_access = {};
-        Access access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
-    };
-
-    struct TaskImageAttachment
-    {
-        using INDEX_TYPE = TaskImageAttachmentIndex;
-        static constexpr TaskAttachmentType ATTACHMENT_TYPE = TaskAttachmentType::IMAGE;
-        char const * name = {};
-        TaskAccess task_access = {};
-        Access access = {};
-        ImageViewType view_type = ImageViewType::MAX_ENUM;
-        u8 shader_array_size = {};
-        bool shader_as_index = {};
-        TaskHeadImageArrayType shader_array_type = {};
-    };
-
-    struct TaskBufferInlineAttachment
-    {
-        char const * name = {};
-        TaskAccess access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
-        TaskBufferView view = {};
-    };
-
-    struct TaskBlasInlineAttachment
-    {
-        char const * name = {};
-        TaskAccess access = {};
-        TaskBlasView view = {};
-    };
-
-    struct TaskTlasInlineAttachment
-    {
-        char const * name = {};
-        TaskAccess access = {};
-        TaskTlasView view = {};
-    };
-
-    struct TaskImageInlineAttachment
-    {
-        char const * name = {};
-        TaskAccess access = {};
-        ImageViewType view_type = ImageViewType::MAX_ENUM;
-        u8 shader_array_size = {};
-        TaskHeadImageArrayType shader_array_type = {};
-        TaskImageView view = {};
-    };
-
-    template <typename T>
-    concept IsTaskResourceAttachment =
-        std::is_same_v<T, TaskBufferAttachment> ||
-        std::is_same_v<T, TaskBlasAttachment> ||
-        std::is_same_v<T, TaskTlasAttachment> ||
-        std::is_same_v<T, TaskImageAttachment>;
-
-    struct TaskAttachment
-    {
-        TaskAttachmentType type = TaskAttachmentType::UNDEFINED;
-        union Value
-        {
-            UndefinedAttachment undefined;
-            TaskBufferAttachment buffer;
-            TaskBlasAttachment blas;
-            TaskTlasAttachment tlas;
-            TaskImageAttachment image;
-        } value = {.undefined = {}};
-
-        constexpr TaskAttachment() = default;
-
-        constexpr TaskAttachment(TaskBufferAttachment const & buffer)
-            : type{TaskAttachmentType::BUFFER}, value{.buffer = buffer}
-        {
-        }
-
-        constexpr TaskAttachment(TaskBlasAttachment const & blas)
-            : type{TaskAttachmentType::BLAS}, value{.blas = blas}
-        {
-        }
-
-        constexpr TaskAttachment(TaskTlasAttachment const & tlas)
-            : type{TaskAttachmentType::TLAS}, value{.tlas = tlas}
-        {
-        }
-
-        constexpr TaskAttachment(TaskImageAttachment const & image)
-            : type{TaskAttachmentType::IMAGE}, value{.image = image}
-        {
-        }
-
-        constexpr auto name() const -> char const *
-        {
-            switch (type)
-            {
-            case TaskAttachmentType::BUFFER: return value.buffer.name;
-            case TaskAttachmentType::BLAS: return value.blas.name;
-            case TaskAttachmentType::TLAS: return value.tlas.name;
-            case TaskAttachmentType::IMAGE: return value.image.name;
-            default: return "undefined";
-            }
-        }
-
-        constexpr auto shader_array_size() const -> u32
-        {
-            switch (type)
-            {
-            case TaskAttachmentType::BUFFER: return value.buffer.shader_array_size * 8;
-            case TaskAttachmentType::BLAS: return 0;
-            case TaskAttachmentType::TLAS: return 8;
-            case TaskAttachmentType::IMAGE: return value.image.shader_array_size * (value.image.shader_as_index ? 4 : 8);
-            default: return 0;
-            }
-        }
-
-        constexpr auto shader_element_align() const -> u32
-        {
-            switch (type)
-            {
-            case TaskAttachmentType::BUFFER: return 8;
-            case TaskAttachmentType::BLAS: return 8;
-            case TaskAttachmentType::TLAS: return 8;
-            case TaskAttachmentType::IMAGE: return value.image.shader_as_index ? 4 : 8;
-            default: return 0;
-            }
-        }
+        NONE,
+        ID,
+        ADDRESS,
     };
 
     struct UndefinedAttachmentRuntimeData
@@ -677,14 +432,12 @@ namespace daxa
         char const * name = {};
         TaskAccess task_access = {};
         Access access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
+        BufferId id = {};
 
         TaskBufferView view = {};
         TaskBufferView translated_view = {};
-        std::span<BufferId const> ids = {};
+        TaskBufferShaderAccessType shader_access_type = {};
     };
-
     static_assert(std::is_standard_layout_v<TaskBufferAttachmentInfo>);
 
     struct TaskBlasAttachmentInfo
@@ -694,14 +447,12 @@ namespace daxa
         char const * name = {};
         TaskAccess task_access = {};
         Access access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
+        BlasId id = {};
 
         TaskBlasView view = {};
         TaskBlasView translated_view = {};
-        std::span<BlasId const> ids = {};
+        TaskBufferShaderAccessType shader_access_type = {};
     };
-
     static_assert(std::is_standard_layout_v<TaskBlasAttachmentInfo>);
 
     struct TaskTlasAttachmentInfo
@@ -711,14 +462,12 @@ namespace daxa
         char const * name = {};
         TaskAccess task_access = {};
         Access access = {};
-        u8 shader_array_size = {};
-        bool shader_as_address = {};
+        TlasId id = {};
 
         TaskTlasView view = {};
         TaskTlasView translated_view = {};
-        std::span<TlasId const> ids = {};
+        TaskBufferShaderAccessType shader_access_type = {};
     };
-
     static_assert(std::is_standard_layout_v<TaskTlasAttachmentInfo>);
 
     struct TaskImageAttachmentInfo
@@ -728,31 +477,44 @@ namespace daxa
         char const * name = {};
         TaskAccess task_access = {};
         Access access = {};
-        ImageViewType view_type = ImageViewType::MAX_ENUM;
-        u8 shader_array_size = {};
-        bool shader_as_index = {};
-        TaskHeadImageArrayType shader_array_type = {};
+        ImageId id = {};
 
         TaskImageView view = {};
         TaskImageView translated_view = {};
-        [[deprecated("Parameter Ignored, always layout general; API:3.2")]] ImageLayout layout = {};
-        std::span<ImageId const> ids = {};
         std::span<ImageViewId const> view_ids = {};
+        ImageViewType view_type = ImageViewType::MAX_ENUM;
+        u8 shader_array_size = {};
+        bool shader_as_index = {};
+        bool is_mip_array = {};
     };
-
     static_assert(std::is_standard_layout_v<TaskImageAttachmentInfo>);
+
+    struct TaskCommonAttachmentInfo
+    {
+        char const * name = {};
+        TaskAccess task_access = {};
+        Access access = {};
+
+        union {
+            BufferId buffer;
+            BlasId blas;
+            TlasId tlas;
+            ImageId image;
+        } id = { .buffer = {} };
+    };
+    static_assert(std::is_standard_layout_v<TaskCommonAttachmentInfo>);
 
     struct TaskAttachmentInfo
     {
         TaskAttachmentType type = TaskAttachmentType::UNDEFINED;
         union Value
         {
-            UndefinedAttachment undefined;
             TaskBufferAttachmentInfo buffer;
             TaskBlasAttachmentInfo blas;
             TaskTlasAttachmentInfo tlas;
             TaskImageAttachmentInfo image;
-        } value = {.undefined = {}};
+            TaskCommonAttachmentInfo common;
+        } value = {.common = {}};
 
         constexpr TaskAttachmentInfo() = default;
 
@@ -776,25 +538,13 @@ namespace daxa
         {
         }
 
-        constexpr auto name() const -> char const *
-        {
-            switch (type)
-            {
-            case TaskAttachmentType::BUFFER: return value.buffer.name;
-            case TaskAttachmentType::BLAS: return value.blas.name;
-            case TaskAttachmentType::TLAS: return value.tlas.name;
-            case TaskAttachmentType::IMAGE: return value.image.name;
-            default: return "undefined";
-            }
-        }
-
         constexpr auto shader_array_size() const -> u32
         {
             switch (type)
             {
-            case TaskAttachmentType::BUFFER: return value.buffer.shader_array_size * 8;
+            case TaskAttachmentType::BUFFER: return (value.buffer.shader_access_type != TaskBufferShaderAccessType::NONE) ? 8u : 0u;
             case TaskAttachmentType::BLAS: return 0;
-            case TaskAttachmentType::TLAS: return 8;
+            case TaskAttachmentType::TLAS: return (value.tlas.shader_access_type != TaskBufferShaderAccessType::NONE) ? 8u : 0u;
             case TaskAttachmentType::IMAGE: return value.image.shader_array_size * (value.image.shader_as_index ? 4 : 8);
             default: return 0;
             }
@@ -804,10 +554,10 @@ namespace daxa
         {
             switch (type)
             {
-            case TaskAttachmentType::BUFFER: return 8;
-            case TaskAttachmentType::BLAS: return 8;
-            case TaskAttachmentType::TLAS: return 8;
-            case TaskAttachmentType::IMAGE: return value.image.shader_as_index ? 4 : 8;
+            case TaskAttachmentType::BUFFER: return (value.buffer.shader_access_type != TaskBufferShaderAccessType::NONE) ? 8u : 0u;
+            case TaskAttachmentType::BLAS: return 8u;
+            case TaskAttachmentType::TLAS: return (value.tlas.shader_access_type != TaskBufferShaderAccessType::NONE) ? 8u : 0u;
+            case TaskAttachmentType::IMAGE: return value.image.shader_as_index ? 4u : 8u;
             default: return 0;
             }
         }
@@ -833,16 +583,6 @@ namespace daxa
         usize task_index = {};
         Queue queue = {};
 
-#if !DAXA_REMOVE_DEPRECATED
-        [[deprecated("Use AttachmentBlob(std::span<std::byte const>) constructor instead, API:3.0")]] void assign_attachment_shader_blob(std::span<std::byte> arr) const
-        {
-            std::memcpy(
-                arr.data(),
-                attachment_shader_blob.data(),
-                attachment_shader_blob.size());
-        }
-#endif
-
         auto get(TaskBufferAttachmentIndex index) const -> TaskBufferAttachmentInfo const &;
         auto get(TaskBufferView view) const -> TaskBufferAttachmentInfo const &;
         auto get(TaskBlasAttachmentIndex index) const -> TaskBlasAttachmentInfo const &;
@@ -853,42 +593,37 @@ namespace daxa
         auto get(TaskImageView view) const -> TaskImageAttachmentInfo const &;
         auto get(usize index) const -> TaskAttachmentInfo const &;
 
-        [[deprecated("Layout is guaranteed to always be general, stop using this function; API:3.2")]]
-        auto layout(TaskImageIndexOrView auto) const -> ImageLayout
+        auto info(TaskIndexOrView auto tresource) const
         {
-            return daxa::ImageLayout::GENERAL;
+            return this->device.info(this->get(tresource).id);
         }
-        auto info(TaskIndexOrView auto tresource, u32 array_index = 0) const
+        auto image_view_info(TaskImageIndexOrView auto timage, u32 mip_index = 0u) const -> Optional<ImageViewInfo>
         {
-            return this->device.info(this->get(tresource).ids[array_index]);
+            return this->device.image_view_info(this->get(timage).view_ids[mip_index]);
         }
-        auto image_view_info(TaskImageIndexOrView auto timage, u32 array_index = 0) const -> Optional<ImageViewInfo>
+        auto device_address(TaskBufferBlasOrTlasIndexOrView auto tresource) const -> Optional<DeviceAddress>
         {
-            return this->device.image_view_info(this->get(timage).view_ids[array_index]);
+            return this->device.device_address(this->get(tresource).id);
         }
-        auto device_address(TaskBufferBlasOrTlasIndexOrView auto tresource, u32 array_index = 0) const -> Optional<DeviceAddress>
+        auto buffer_device_address(TaskBufferBlasOrTlasIndexOrView auto tresource) const -> Optional<DeviceAddress>
         {
-            return this->device.device_address(this->get(tresource).ids[array_index]);
+            return this->device.device_address(this->get(tresource).id);
         }
-        auto buffer_device_address(TaskBufferBlasOrTlasIndexOrView auto tresource, u32 array_index = 0) const -> Optional<DeviceAddress>
+        auto host_address(TaskBufferIndexOrView auto tbuffer) const -> Optional<std::byte *>
         {
-            return this->device.device_address(this->get(tresource).ids[array_index]);
+            return this->device.buffer_host_address(this->get(tbuffer).id);
         }
-        auto host_address(TaskBufferIndexOrView auto tbuffer, u32 array_index = 0) const -> Optional<std::byte *>
+        auto buffer_host_address(TaskBufferIndexOrView auto tbuffer) const -> Optional<std::byte *>
         {
-            return this->device.buffer_host_address(this->get(tbuffer).ids[array_index]);
+            return this->device.buffer_host_address(this->get(tbuffer).id);
         }
-        auto buffer_host_address(TaskBufferIndexOrView auto tbuffer, u32 array_index = 0) const -> Optional<std::byte *>
+        auto id(TaskIndexOrView auto tresource)
         {
-            return this->device.buffer_host_address(this->get(tbuffer).ids[array_index]);
+            return this->get(tresource).id;
         }
-        auto id(TaskIndexOrView auto tresource, u32 index = 0)
+        auto view(TaskImageIndexOrView auto timg, u32 mip_index = 0u)
         {
-            return this->get(tresource).ids[index];
-        }
-        auto view(TaskImageIndexOrView auto timg, u32 index = 0)
-        {
-            auto const v = this->get(timg).view_ids[index];
+            auto const v = this->get(timg).view_ids[mip_index];
             DAXA_DBG_ASSERT_TRUE_M(
                 !v.is_empty(),
                 "Failed to return cached image view for image attachment!\n"
@@ -900,43 +635,28 @@ namespace daxa
         }
     };
 
-    struct TrackedBuffers
-    {
-        std::span<BufferId const> buffers = {};
-        Access latest_access = {};
-    };
-
     struct TaskBufferInfo
     {
-        TrackedBuffers initial_buffers = {};
-        std::string name = {};
+        daxa::BufferId buffer = {};
+        std::string_view name = {};
     };
 
-#if DAXA_ENABLE_TASK_GRAPH_MK2
     struct ImplExternalResource;
     using ImplPersistentTaskBufferBlasTlas = ImplExternalResource;
-#else
-    struct ImplPersistentTaskBufferBlasTlas;
-#endif
 
     struct DAXA_EXPORT_CXX TaskBuffer : ManagedPtr<TaskBuffer, ImplPersistentTaskBufferBlasTlas *>
     {
         TaskBuffer() = default;
         TaskBuffer(TaskBufferInfo const & info);
-        TaskBuffer(daxa::Device & device, BufferInfo const & info);
 
         operator TaskBufferView() const;
 
         auto view() const -> TaskBufferView;
-        /// THREADSAFETY:
-        /// * reference MUST NOT be read after the object is destroyed.
-        /// @return reference to info of object.
         auto info() const -> TaskBufferInfo;
-        auto get_state() const -> TrackedBuffers;
-        auto is_owning() const -> bool;
 
-        void set_buffers(TrackedBuffers const & buffers);
+        void set_buffer(BufferId buffer);
         void swap_buffers(TaskBuffer & other);
+        auto id() const -> BufferId;
 
       protected:
         template <typename T, typename H_T>
@@ -945,16 +665,10 @@ namespace daxa
         static auto dec_refcnt(ImplHandle const * object) -> u64;
     };
 
-    struct TrackedBlas
-    {
-        std::span<BlasId const> blas = {};
-        Access latest_access = {};
-    };
-
     struct TaskBlasInfo
     {
-        TrackedBlas initial_blas = {};
-        std::string name = {};
+        BlasId blas = {};
+        std::string_view name = {};
     };
 
     struct DAXA_EXPORT_CXX TaskBlas : ManagedPtr<TaskBlas, ImplPersistentTaskBufferBlasTlas *>
@@ -965,13 +679,9 @@ namespace daxa
         operator TaskBlasView() const;
 
         auto view() const -> TaskBlasView;
-        /// THREADSAFETY:
-        /// * reference MUST NOT be read after the object is destroyed.
-        /// @return reference to info of object.
         auto info() const -> TaskBlasInfo;
-        auto get_state() const -> TrackedBlas;
-
-        void set_blas(TrackedBlas const & blas);
+        auto id() const -> BlasId;
+        void set_blas(BlasId blas);
         void swap_blas(TaskBlas & other);
 
       protected:
@@ -981,16 +691,10 @@ namespace daxa
         static auto dec_refcnt(ImplHandle const * object) -> u64;
     };
 
-    struct TrackedTlas
-    {
-        std::span<TlasId const> tlas = {};
-        Access latest_access = {};
-    };
-
     struct TaskTlasInfo
     {
-        TrackedTlas initial_tlas = {};
-        std::string name = {};
+        TlasId tlas = {};
+        std::string_view name = {};
     };
 
     struct DAXA_EXPORT_CXX TaskTlas : ManagedPtr<TaskTlas, ImplPersistentTaskBufferBlasTlas *>
@@ -1001,13 +705,9 @@ namespace daxa
         operator TaskTlasView() const;
 
         auto view() const -> TaskTlasView;
-        /// THREADSAFETY:
-        /// * reference MUST NOT be read after the object is destroyed.
-        /// @return reference to info of object.
         auto info() const -> TaskTlasInfo;
-        auto get_state() const -> TrackedTlas;
-
-        void set_tlas(TrackedTlas const & tlas);
+        auto id() const -> TlasId;
+        void set_tlas(TlasId tlas);
         void swap_tlas(TaskTlas & other);
 
       protected:
@@ -1017,43 +717,28 @@ namespace daxa
         static auto dec_refcnt(ImplHandle const * object) -> u64;
     };
 
-    struct TrackedImages
-    {
-        std::span<ImageId const> images = {};
-        // optional:
-        std::span<ImageSliceState const> latest_slice_states = {};
-    };
-
     struct TaskImageInfo
     {
-        TrackedImages initial_images = {};
-        bool swapchain_image = {};
-        std::string name = {};
+        ImageId image = {};
+        bool is_general_layout = {};
+        bool is_swapchain_image = {};
+        std::string_view name = {};
     };
 
-#if DAXA_ENABLE_TASK_GRAPH_MK2
     struct ImplExternalResource;
     using ImplPersistentTaskImage = ImplExternalResource;
-#else
-    struct ImplPersistentTaskImage;
-#endif
 
     struct DAXA_EXPORT_CXX TaskImage : ManagedPtr<TaskImage, ImplPersistentTaskImage *>
     {
         TaskImage() = default;
-        // TaskImage(TaskImage const & ti) = default;
         TaskImage(TaskImageInfo const & info);
 
         operator TaskImageView() const;
 
         auto view() const -> TaskImageView;
-        /// THREADSAFETY:
-        /// * reference MUST NOT be read after the object is destroyed.
-        /// @return reference to info of object.
         auto info() const -> TaskImageInfo;
-        auto get_state() const -> TrackedImages;
-
-        void set_images(TrackedImages const & images);
+        auto id() const -> ImageId;
+        void set_image(ImageId image, bool is_general_layout = false);
         void swap_images(TaskImage & other);
 
       protected:
@@ -1086,25 +771,12 @@ namespace daxa
         TaskBufferViewOrTaskBuffer<T> || TaskBlasViewOrTaskBlas<T> || TaskTlasViewOrTaskTlas<T> || TaskImageViewOrTaskImage<T>;
 
     template <typename T>
-    concept TaskBufferBlasTlasViewOrBufferBlasTlas =
-        TaskBufferViewOrTaskBuffer<T> || TaskBlasViewOrTaskBlas<T> || TaskTlasViewOrTaskTlas<T>;
+    concept AttachmentParamBasic =
+        TaskResourceViewOrResource<T> || std::is_same_v<ImageViewType, T> || std::is_same_v<char const *, T> || std::is_same_v<T, TaskStages>;
 
     template <typename T>
-    concept TaskResourceViewOrResourceOrImageViewType =
-        TaskResourceViewOrResource<T> || std::is_same_v<ImageViewType, T>;
-
-    template <typename T>
-    concept TaskResourceViewOrResourceOrImageViewTypeOrStage =
-        TaskResourceViewOrResourceOrImageViewType<T> || std::is_same_v<T, TaskStage>;
-
-    template <typename T>
-    concept TaskImageViewOrTaskImageOrImageViewType = std::is_same_v<T, TaskImageView> || std::is_same_v<T, TaskImage> || std::is_same_v<ImageViewType, T>;
-
-    template <typename T>
-    concept TaskResourceOrViewOrAccess = TaskResourceViewOrResourceOrImageViewType<T> || std::is_same_v<T, TaskStage>;
-
-    template <typename T>
-    concept TaskImageOrViewOrAccess = TaskImageViewOrTaskImageOrImageViewType<T> || std::is_same_v<T, TaskStage>;
+    concept AttachmentParamSampled =
+        TaskImageViewOrTaskImage<T> || std::is_same_v<ImageViewType, T> || std::is_same_v<char const *, T> || std::is_same_v<T, TaskStages>;
 
     inline namespace detail
     {
@@ -1225,7 +897,7 @@ namespace daxa
     {
         struct DeclaredAttachments
         {
-            std::array<daxa::TaskAttachment, ATTACHMENT_COUNT> value = {};
+            std::array<daxa::TaskAttachmentInfo, ATTACHMENT_COUNT> value = {};
             u32 count = {};
         };
         using InternalT = DeclaredAttachments;
@@ -1302,7 +974,7 @@ namespace daxa
             {                                                                                    \
                 return std::span{_internal.value};                                               \
             }                                                                                    \
-            constexpr auto at(daxa::usize idx) const -> daxa::TaskAttachment const &             \
+            constexpr auto at(daxa::usize idx) const -> daxa::TaskAttachmentInfo const &             \
                 requires(!!TDecl::DECL_ATTACHMENTS)                                              \
             {                                                                                    \
                 return _internal.value.at(idx);                                                  \
@@ -1325,7 +997,7 @@ namespace daxa
     typename TDecl::TaskBufferT NAME =                                         \
         {TDecl::template process_attachment_decl<typename TDecl::TaskBufferT>( \
             _internal,                                                         \
-            daxa::TaskBufferAttachment{                                        \
+            daxa::TaskBufferAttachmentInfo{                                        \
                 .name = #NAME,                                                 \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                     \
                 __VA_ARGS__})};
@@ -1334,7 +1006,7 @@ namespace daxa
     typename TDecl::TaskBlasT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskBlasT>( \
             _internal,                                                       \
-            daxa::TaskBlasAttachment{                                        \
+            daxa::TaskBlasAttachmentInfo{                                        \
                 .name = #NAME,                                               \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                   \
             })};
@@ -1343,7 +1015,7 @@ namespace daxa
     typename TDecl::TaskTlasT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskTlasT>( \
             _internal,                                                       \
-            daxa::TaskTlasAttachment{                                        \
+            daxa::TaskTlasAttachmentInfo{                                        \
                 .name = #NAME,                                               \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                   \
                 __VA_ARGS__})};
@@ -1352,7 +1024,7 @@ namespace daxa
     typename TDecl::TaskImageT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskImageT>( \
             _internal,                                                        \
-            daxa::TaskImageAttachment{                                        \
+            daxa::TaskImageAttachmentInfo{                                        \
                 .name = #NAME,                                                \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                    \
                 __VA_ARGS__})};
@@ -1386,14 +1058,14 @@ namespace daxa
             }                                                                                                                                           \
         };                                                                                                                                              \
     };                                                                                                                                                  \
-    /*deprecated("Use Head::Info instead; API:3.1")*/ using Views = Info::Views;                                                                        \
-    /*deprecated("Use Head::Info instead; API:3.1")*/ using AttachmentViews = Info::Views;                                                              \
-    /*deprecated("Use Head::Info instead; API:3.1")*/ using AttachmentShaderBlob = Info::AttachmentShaderBlob;                                          \
-    [[deprecated("Use Head::Info instead; API:3.1")]] static inline constexpr daxa::TaskType TYPE = Info::TYPE;                                         \
-    [[deprecated("Use Head::Info instead; API:3.1")]] static inline constexpr char const * NAME = Info::NAME;                                           \
-    [[deprecated("Use Head::Info instead; API:3.1")]] static constexpr decltype(Info::ATTACHMENT_COUNT) ATTACHMENT_COUNT = Info::ATTACHMENT_COUNT;      \
-    [[deprecated("Use Head::Info instead; API:3.1")]] static constexpr auto const & ATTACHMENTS = Info::ATTACHMENTS;                                    \
-    [[deprecated("Use Head::Info instead; API:3.1")]] static constexpr auto const & AT = Info::ATTACHMENTS;                                             \
+    using Views = Info::Views;                                                                                                                          \
+    using AttachmentViews = Info::Views;                                                                                                                \
+    using AttachmentShaderBlob = Info::AttachmentShaderBlob;                                                                                            \
+    static inline constexpr daxa::TaskType TYPE = Info::TYPE;                                                                                           \
+    static inline constexpr char const * NAME = Info::NAME;                                                                                             \
+    static constexpr decltype(Info::ATTACHMENT_COUNT) ATTACHMENT_COUNT = Info::ATTACHMENT_COUNT;                                                        \
+    static constexpr auto const & ATTACHMENTS = Info::ATTACHMENTS;                                                                                      \
+    static constexpr auto const & AT = Info::ATTACHMENTS;                                                                                               \
     struct Task : public daxa::IPartialTask                                                                                                             \
     {                                                                                                                                                   \
         using Info = Info;                                                                                                                              \
@@ -1410,163 +1082,21 @@ namespace daxa
 #define DAXA_TH_IMAGE(TASK_ACCESS, VIEW_TYPE, NAME) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = 0)
 
 #define DAXA_TH_IMAGE_ID(TASK_ACCESS, VIEW_TYPE, NAME) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = 1)
-#define DAXA_TH_IMAGE_ID_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = SIZE, .shader_array_type = daxa::TaskHeadImageArrayType::MIP_LEVELS)
+#define DAXA_TH_IMAGE_ID_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = SIZE, .is_mip_array = true)
 
 #define DAXA_TH_IMAGE_INDEX(TASK_ACCESS, VIEW_TYPE, NAME) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = 1, .shader_as_index = true)
-#define DAXA_TH_IMAGE_INDEX_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = SIZE, .shader_array_type = daxa::TaskHeadImageArrayType::MIP_LEVELS, .shader_as_index = true)
+#define DAXA_TH_IMAGE_INDEX_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = daxa::ImageViewType::VIEW_TYPE, .shader_array_size = SIZE, .is_mip_array = true, .shader_as_index = true)
 
 #define DAXA_TH_IMAGE_TYPED(TASK_ACCESS, VIEW_TYPE, NAME) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = VIEW_TYPE::IMAGE_VIEW_TYPE, .shader_array_size = 1, .shader_as_index = VIEW_TYPE::SHADER_INDEX32)
-#define DAXA_TH_IMAGE_TYPED_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = VIEW_TYPE::IMAGE_VIEW_TYPE, .shader_array_size = SIZE, .shader_as_index = VIEW_TYPE::SHADER_INDEX32, .shader_array_type = daxa::TaskHeadImageArrayType::MIP_LEVELS)
+#define DAXA_TH_IMAGE_TYPED_MIP_ARRAY(TASK_ACCESS, VIEW_TYPE, NAME, SIZE) _DAXA_HELPER_TH_IMAGE(NAME, TASK_ACCESS, .view_type = VIEW_TYPE::IMAGE_VIEW_TYPE, .shader_array_size = SIZE, .shader_as_index = VIEW_TYPE::SHADER_INDEX32, .is_mip_array = true)
 
-#define DAXA_TH_STAGE_VAR(STAGE_VAR) daxa::TaskStage stage = {};
+#define DAXA_TH_STAGE_VAR(STAGE_VAR) daxa::TaskStages stage = {};
 
-#define DAXA_TH_BUFFER(TASK_ACCESS, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS, .shader_array_size = 0)
-#define DAXA_TH_BUFFER_ID(TASK_ACCESS, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS, .shader_array_size = 1, .shader_as_address = false)
-#define DAXA_TH_BUFFER_PTR(TASK_ACCESS, PTR_TYPE, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS, .shader_array_size = 1, .shader_as_address = true)
+#define DAXA_TH_BUFFER(TASK_ACCESS, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS)
+#define DAXA_TH_BUFFER_ID(TASK_ACCESS, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS, .shader_access_type = daxa::TaskBufferShaderAccessType::ID)
+#define DAXA_TH_BUFFER_PTR(TASK_ACCESS, PTR_TYPE, NAME) _DAXA_HELPER_TH_BUFFER(NAME, TASK_ACCESS, .shader_access_type = daxa::TaskBufferShaderAccessType::ADDRESS)
 #define DAXA_TH_BLAS(TASK_ACCESS, NAME) _DAXA_HELPER_TH_BLAS(NAME, TASK_ACCESS)
-#define DAXA_TH_TLAS(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS, .shader_array_size = 0)
-#define DAXA_TH_TLAS_PTR(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS, .shader_array_size = 1, .shader_as_address = true)
-#define DAXA_TH_TLAS_ID(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS, .shader_array_size = 1, .shader_as_address = false)
-
-    template <typename BufFn, typename ImgFn>
-    constexpr void for_each(std::span<TaskAttachmentInfo> attachments, BufFn && buf_fn, ImgFn && img_fn)
-    {
-        for (u32 index = 0; index < attachments.size(); ++index)
-        {
-            switch (attachments[index].type)
-            {
-            case TaskAttachmentType::BUFFER: buf_fn(index, attachments[index].value.buffer); break;
-            case TaskAttachmentType::BLAS: buf_fn(index, attachments[index].value.blas); break;
-            case TaskAttachmentType::TLAS: buf_fn(index, attachments[index].value.tlas); break;
-            case TaskAttachmentType::IMAGE: img_fn(index, attachments[index].value.image); break;
-            default: break;
-            }
-        }
-    }
-
-    template <typename BufFn, typename ImgFn>
-    constexpr void for_each(std::span<TaskAttachmentInfo const> attachments, BufFn && buf_fn, ImgFn && img_fn)
-    {
-        for (u32 index = 0; index < attachments.size(); ++index)
-        {
-            switch (attachments[index].type)
-            {
-            case TaskAttachmentType::BUFFER: buf_fn(index, attachments[index].value.buffer); break;
-            case TaskAttachmentType::BLAS: buf_fn(index, attachments[index].value.blas); break;
-            case TaskAttachmentType::TLAS: buf_fn(index, attachments[index].value.tlas); break;
-            case TaskAttachmentType::IMAGE: img_fn(index, attachments[index].value.image); break;
-            default: break;
-            }
-        }
-    }
-
-#if !DAXA_REMOVE_DEPRECATED
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto attachment_view(TaskBufferAttachmentIndex index, TaskBufferView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskBufferAttachmentIndex, daxa::TaskBufferView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto attachment_view(TaskBlasAttachmentIndex index, TaskBlasView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskBlasAttachmentIndex, daxa::TaskBlasView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto attachment_view(TaskTlasAttachmentIndex index, TaskTlasView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskTlasAttachmentIndex, daxa::TaskTlasView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto attachment_view(TaskImageAttachmentIndex index, TaskImageView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskImageAttachmentIndex, daxa::TaskImageView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto operator|(TaskBufferAttachmentIndex index, TaskBufferView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskBufferAttachmentIndex, daxa::TaskBufferView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto operator|(TaskBlasAttachmentIndex index, TaskBlasView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskBlasAttachmentIndex, daxa::TaskBlasView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto operator|(TaskTlasAttachmentIndex index, TaskTlasView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskTlasAttachmentIndex, daxa::TaskTlasView>(index, view);
-    }
-
-    [[deprecated("Task::Views asignment instead, API:3.1")]] inline auto operator|(TaskImageAttachmentIndex index, TaskImageView view) -> TaskViewIndexVariant
-    {
-        return std::pair<daxa::TaskImageAttachmentIndex, daxa::TaskImageView>(index, view);
-    }
-
-#endif // !DAXA_REMOVE_DEPRECATED
-
-    inline auto inl_attachment(TaskAccess access, TaskBufferView view) -> TaskAttachmentInfo
-    {
-        TaskBufferAttachmentInfo buf = {};
-        buf.name = "inline attachment";
-        buf.task_access = access;
-        buf.shader_array_size = 0;
-        buf.shader_as_address = false;
-        buf.view = view;
-        TaskAttachmentInfo info = {};
-        info.type = daxa::TaskAttachmentType::BUFFER;
-        info.value.buffer = buf;
-        return info;
-    }
-
-    inline auto inl_attachment(TaskAccess access, TaskBlasView view) -> TaskAttachmentInfo
-    {
-        TaskBlasAttachmentInfo blas = {};
-        blas.name = "inline attachment";
-        blas.task_access = access;
-        blas.view = view;
-        TaskAttachmentInfo info = {};
-        info.type = daxa::TaskAttachmentType::BLAS;
-        info.value.blas = blas;
-        return info;
-    }
-
-    inline auto inl_attachment(TaskAccess access, TaskTlasView view) -> TaskAttachmentInfo
-    {
-        TaskTlasAttachmentInfo tlas = {};
-        tlas.name = "inline attachment";
-        tlas.task_access = access;
-        tlas.view = view;
-        tlas.shader_as_address = false;
-        TaskAttachmentInfo info = {};
-        info.type = daxa::TaskAttachmentType::TLAS;
-        info.value.tlas = tlas;
-        return info;
-    }
-
-    inline auto inl_attachment(TaskAccess access, TaskImageView view, ImageViewType view_type = daxa::ImageViewType::MAX_ENUM) -> TaskAttachmentInfo
-    {
-        TaskImageAttachmentInfo img = {};
-        img.name = "inline attachment";
-        img.task_access = access;
-        img.view_type = view_type;
-        img.shader_array_size = 0;
-        img.view = view;
-        TaskAttachmentInfo info = {};
-        info.value.image = img;
-        info.type = daxa::TaskAttachmentType::IMAGE;
-        return info;
-    }
-
-    inline auto inl_attachment(TaskAccess access, ImageViewType view_type, TaskImageView view) -> TaskAttachmentInfo
-    {
-        TaskImageAttachmentInfo img = {};
-        img.name = "inline attachment";
-        img.task_access = access;
-        img.view_type = view_type;
-        img.shader_array_size = 0;
-        img.view = view;
-        TaskAttachmentInfo info = {};
-        info.type = daxa::TaskAttachmentType::IMAGE;
-        info.value.image = img;
-        return info;
-    }
+#define DAXA_TH_TLAS(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS)
+#define DAXA_TH_TLAS_ID(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS, .shader_access_type = daxa::TaskBufferShaderAccessType::ID)
+#define DAXA_TH_TLAS_PTR(TASK_ACCESS, NAME) _DAXA_HELPER_TH_TLAS(NAME, TASK_ACCESS, .shader_access_type = daxa::TaskBufferShaderAccessType::ADDRESS)
 } // namespace daxa

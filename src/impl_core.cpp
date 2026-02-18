@@ -258,17 +258,17 @@ auto construct_daxa_physical_device_properties(VkPhysicalDevice physical_device)
         ret.host_image_copy_properties.value.identical_memory_type_requirements = static_cast<daxa_Bool8>(vk_physical_device_host_image_copy_properties_ext.identicalMemoryTypeRequirements);
     }
 
-    u32 queue_family_props_count = 0;
+    u32 queue_type_props_count = 0;
     std::vector<VkQueueFamilyProperties> queue_props;
-    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_props_count, nullptr);
-    queue_props.resize(queue_family_props_count);
-    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_props_count, queue_props.data());
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_type_props_count, nullptr);
+    queue_props.resize(queue_type_props_count);
+    vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_type_props_count, queue_props.data());
     std::vector<VkBool32> supports_present;
-    supports_present.resize(queue_family_props_count);
+    supports_present.resize(queue_type_props_count);
 
     ret.compute_queue_count = ~0u;
     ret.transfer_queue_count = ~0u;
-    for (u32 i = 0; i < queue_family_props_count; i++)
+    for (u32 i = 0; i < queue_type_props_count; i++)
     {
         bool const supports_graphics = queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT;
         bool const supports_compute = queue_props[i].queueFlags & VK_QUEUE_COMPUTE_BIT;
@@ -440,49 +440,49 @@ void daxa_as_build_info_to_vk(
 
 // --- Begin API Functions
 
-auto daxa_default_view(daxa_ImageId id) -> daxa_ImageViewId
+auto daxa_default_view(daxa_ImageId image) -> daxa_ImageViewId
 {
-    return daxa_ImageViewId{.value = id.value};
+    return daxa_ImageViewId{.value = image.value};
 }
 
-auto daxa_index_of_buffer(daxa_BufferId id) -> u32
+auto daxa_index_of_buffer(daxa_BufferId buffer) -> u32
 {
-    return static_cast<u32>(id.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
+    return static_cast<u32>(buffer.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
 }
 
-auto daxa_index_of_image(daxa_ImageId id) -> u32
+auto daxa_index_of_image(daxa_ImageId image) -> u32
 {
-    return static_cast<u32>(id.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
+    return static_cast<u32>(image.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
 }
 
-auto daxa_index_of_image_view(daxa_ImageViewId id) -> u32
+auto daxa_index_of_image_view(daxa_ImageViewId image_view) -> u32
 {
-    return static_cast<u32>(id.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
+    return static_cast<u32>(image_view.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
 }
 
-auto daxa_index_of_sampler(daxa_SamplerId id) -> u32
+auto daxa_index_of_sampler(daxa_SamplerId sampler) -> u32
 {
-    return static_cast<u32>(id.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
+    return static_cast<u32>(sampler.value & mask_from_bit_count(DAXA_ID_INDEX_BITS));
 }
 
-auto daxa_version_of_buffer(daxa_BufferId id) -> u64
+auto daxa_version_of_buffer(daxa_BufferId buffer) -> u64
 {
-    return (id.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
+    return (buffer.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
 }
 
-auto daxa_version_of_image(daxa_ImageId id) -> u64
+auto daxa_version_of_image(daxa_ImageId image) -> u64
 {
-    return (id.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
+    return (image.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
 }
 
-auto daxa_version_of_image_view(daxa_ImageViewId id) -> u64
+auto daxa_version_of_image_view(daxa_ImageViewId image_view) -> u64
 {
-    return (id.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
+    return (image_view.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
 }
 
-auto daxa_version_of_sampler(daxa_SamplerId id) -> u64
+auto daxa_version_of_sampler(daxa_SamplerId sampler) -> u64
 {
-    return (id.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
+    return (sampler.value >> DAXA_ID_VERSION_OFFSET) & mask_from_bit_count(DAXA_ID_VERSION_BITS);
 }
 
 // --- End API Functions

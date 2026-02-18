@@ -351,7 +351,7 @@ struct App : BaseApp<App>
 
     daxa::BufferId gpu_status_buffer = device.create_buffer(daxa::BufferInfo{
         .size = sizeof(GpuStatus),
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
+        .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
         .name = "gpu_status_buffer",
     });
     GpuStatus* gpu_status = device.buffer_host_address_as<GpuStatus>(gpu_status_buffer).value();
@@ -383,14 +383,14 @@ struct App : BaseApp<App>
 
     daxa::BufferId camera_buffer = device.create_buffer(daxa::BufferInfo{
         .size = sizeof(Camera),
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+        .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
         .name = "camera_buffer",
     });
     daxa::TaskBuffer task_camera_buffer{{.initial_buffers = {.buffers = std::array{camera_buffer}}, .name = "camera_buffer_task"}};
     /// create blas instances for tlas:
     daxa::BufferId blas_instances_buffer = device.create_buffer({
         .size = sizeof(daxa_BlasInstanceData),
-        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+        .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
         .name = "blas instances array buffer",
     });
     daxa::BlasBuildInfo blas_build_info = {};
@@ -461,8 +461,8 @@ struct App : BaseApp<App>
 
         ImGui::Image(
             imgui_renderer.create_texture_id({
-                .image_view_id = render_image.default_view(),
-                .sampler_id = sampler,
+                .image_view = render_image.default_view(),
+                .sampler = sampler,
             }),
             ImVec2(200, 200));
 
@@ -550,8 +550,8 @@ struct App : BaseApp<App>
     }
 
     void particle_set_position() {
-        upload_task_graph.use_persistent_buffer(task_particles_buffer);
-        upload_task_graph.use_persistent_buffer(task_aabb_buffer);
+        upload_task_graph.register_buffer(task_particles_buffer);
+        upload_task_graph.register_buffer(task_aabb_buffer);
 
         upload_task_graph.add_task({
             .attachments = {
@@ -562,7 +562,7 @@ struct App : BaseApp<App>
             {
                 auto staging_particles_buffer = device.create_buffer({
                     .size = particles_size,
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("staging_particles_buffer"),
                 });
                 ti.recorder.destroy_buffer_deferred(staging_particles_buffer);
@@ -570,7 +570,7 @@ struct App : BaseApp<App>
 
                 auto staging_aabb_buffer = device.create_buffer({
                     .size = aabb_size,
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("staging_particles_buffer"),
                 });
                 ti.recorder.destroy_buffer_deferred(staging_aabb_buffer);
@@ -691,12 +691,12 @@ struct App : BaseApp<App>
             .name = "input_task_graph",
         });
 
-        input_task_graph.use_persistent_image(task_render_image);
-        input_task_graph.use_persistent_buffer(task_gpu_input_buffer);
-        input_task_graph.use_persistent_buffer(task_gpu_status_buffer);
-        input_task_graph.use_persistent_buffer(task_particles_buffer);
-        input_task_graph.use_persistent_buffer(task_grid_buffer);
-        input_task_graph.use_persistent_buffer(task_camera_buffer);
+        input_task_graph.register_image(task_render_image);
+        input_task_graph.register_buffer(task_gpu_input_buffer);
+        input_task_graph.register_buffer(task_gpu_status_buffer);
+        input_task_graph.register_buffer(task_particles_buffer);
+        input_task_graph.register_buffer(task_grid_buffer);
+        input_task_graph.register_buffer(task_camera_buffer);
         
         reset_camera(cam);
 
@@ -712,7 +712,7 @@ struct App : BaseApp<App>
             {
                 auto staging_gpu_input_buffer = device.create_buffer({
                     .size = sizeof(GpuInput),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("staging_gpu_input_buffer"),
                 });
                 ti.recorder.destroy_buffer_deferred(staging_gpu_input_buffer);
@@ -726,7 +726,7 @@ struct App : BaseApp<App>
 
                 // auto staging_gpu_status_buffer = device.create_buffer({
                 //     .size = sizeof(GpuStatus),
-                //     .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                //     .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 //     .name = ("staging_gpu_status_buffer"),
                 // });
 
@@ -761,13 +761,13 @@ struct App : BaseApp<App>
             .name = "sim_task_graph",
         });
 
-        sim_task_graph.use_persistent_image(task_render_image);
-        sim_task_graph.use_persistent_buffer(task_gpu_input_buffer);
-        sim_task_graph.use_persistent_buffer(task_gpu_status_buffer);
-        sim_task_graph.use_persistent_buffer(task_particles_buffer);
-        sim_task_graph.use_persistent_buffer(task_grid_buffer);
-        sim_task_graph.use_persistent_buffer(task_aabb_buffer);
-        sim_task_graph.use_persistent_buffer(task_camera_buffer);
+        sim_task_graph.register_image(task_render_image);
+        sim_task_graph.register_buffer(task_gpu_input_buffer);
+        sim_task_graph.register_buffer(task_gpu_status_buffer);
+        sim_task_graph.register_buffer(task_particles_buffer);
+        sim_task_graph.register_buffer(task_grid_buffer);
+        sim_task_graph.register_buffer(task_aabb_buffer);
+        sim_task_graph.register_buffer(task_camera_buffer);
 
         sim_task_graph.add_task({
             .attachments = {
@@ -861,6 +861,7 @@ struct App : BaseApp<App>
             },
             .name = ("Grid (Compute)"),
         });
+
         sim_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::COMPUTE_SHADER_READ, task_gpu_input_buffer),
@@ -1030,15 +1031,15 @@ struct App : BaseApp<App>
 
     void record_tasks(daxa::TaskGraph & new_task_graph)
     {
-        new_task_graph.use_persistent_image(task_render_image);
-        new_task_graph.use_persistent_buffer(task_gpu_input_buffer);
-        new_task_graph.use_persistent_buffer(task_gpu_status_buffer);
-        new_task_graph.use_persistent_buffer(task_particles_buffer);
-        new_task_graph.use_persistent_buffer(task_grid_buffer);
-        new_task_graph.use_persistent_buffer(task_aabb_buffer);
-        new_task_graph.use_persistent_buffer(task_camera_buffer);
-        new_task_graph.use_persistent_blas(task_blas);
-        new_task_graph.use_persistent_tlas(task_tlas);
+        new_task_graph.register_image(task_render_image);
+        new_task_graph.register_buffer(task_gpu_input_buffer);
+        new_task_graph.register_buffer(task_gpu_status_buffer);
+        new_task_graph.register_buffer(task_particles_buffer);
+        new_task_graph.register_buffer(task_grid_buffer);
+        new_task_graph.register_buffer(task_aabb_buffer);
+        new_task_graph.register_buffer(task_camera_buffer);
+        new_task_graph.register_blas(task_blas);
+        new_task_graph.register_tlas(task_tlas);
 
         imgui_task_attachments.push_back(daxa::inl_attachment(daxa::TaskImageAccess::FRAGMENT_SHADER_SAMPLED, task_render_image));
         record_accel_struct_tasks(new_task_graph);

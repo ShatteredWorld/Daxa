@@ -232,7 +232,7 @@ struct App : AppWindow<App>
 
         auto vertex_staging_buffer = device.create_buffer({
             .size = sizeof(DrawVertex) * MAX_VERTS,
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             .name = ("vertex_staging_buffer"),
         });
         recorder.destroy_buffer_deferred(vertex_staging_buffer);
@@ -258,7 +258,7 @@ struct App : AppWindow<App>
 
         recorder.pipeline_image_barrier({
             .dst_access = daxa::AccessConsts::COLOR_ATTACHMENT_OUTPUT_WRITE,
-            .image_id = swapchain_image,
+            .image = swapchain_image,
             .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
         });
 
@@ -279,11 +279,11 @@ struct App : AppWindow<App>
         render_recorder.draw({.vertex_count = vert_n});
         recorder = std::move(render_recorder).end_renderpass();
 
-        imgui_renderer.record_commands(ImGui::GetDrawData(), recorder, swapchain_image, size_x, size_y);
+        imgui_renderer.record_commands({ImGui::GetDrawData(), recorder, swapchain_image, size_x, size_y});
 
         recorder.pipeline_image_barrier({
-            .src_access = daxa::AccessConsts::ALL_GRAPHICS_READ_WRITE,
-            .image_id = swapchain_image,
+            .src_access = daxa::AccessConsts::ALL_RASTER_READ_WRITE,
+            .image = swapchain_image,
             .layout_operation = daxa::ImageLayoutOperation::TO_PRESENT_SRC,
         });
 

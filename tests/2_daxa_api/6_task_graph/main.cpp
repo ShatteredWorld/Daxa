@@ -21,7 +21,7 @@ void example_task_callback(daxa::TaskInterface ti)
     }
     // The Buffer Attachment info contents:
     {
-        [[maybe_unused]] daxa::BufferId id = ti.get(AI.buffer0).ids[0];
+        [[maybe_unused]] daxa::BufferId id = ti.get(AI.buffer0).id;
         [[maybe_unused]] char const * name = ti.get(AI.buffer0).name;
         [[maybe_unused]] daxa::TaskAccess access = ti.get(AI.buffer0).task_access;
         [[maybe_unused]] u8 shader_array_size = ti.get(AI.buffer0).shader_array_size;
@@ -35,9 +35,9 @@ void example_task_callback(daxa::TaskInterface ti)
         [[maybe_unused]] daxa::TaskAccess access = ti.get(AI.image0).task_access;
         [[maybe_unused]] daxa::ImageViewType view_type = ti.get(AI.image0).view_type;
         [[maybe_unused]] u8 shader_array_size = ti.get(AI.image0).shader_array_size;
-        [[maybe_unused]] daxa::TaskHeadImageArrayType shader_array_type = ti.get(AI.image0).shader_array_type;
+        [[maybe_unused]] bool is_mip_array = ti.get(AI.image0).is_mip_array;
         [[maybe_unused]] daxa::TaskImageView view = ti.get(AI.image0).view;
-        [[maybe_unused]] std::span<daxa::ImageId const> ids = ti.get(AI.image0).ids;
+        [[maybe_unused]] daxa::ImageId id = ti.get(AI.image0).id;
         [[maybe_unused]] std::span<daxa::ImageViewId const> view_ids = ti.get(AI.image0).view_ids;
     }
     // The interface has multiple convenience functions for easier access to the underlying resources attributes:
@@ -139,9 +139,9 @@ namespace tests
             .uses_head<ExampleTaskHead::Info>()
             .head_views({ .image1 = img_view2 })                            // No overwrite of access or stage, uses the task head declared access
             .transfer.reads({ .buffer0 = buf_view })                        // Overrides the access type of head attachment, also overrides the stage to that of the task (in this case compute)
-            .writes(daxa::TaskStage::RASTER_SHADER, {.image0 = img_view })  // Overrides the access type of head attachment, also overrides the stage to RASTER_SHADER
+            .writes(daxa::TaskStages::RASTER_SHADER, {.image0 = img_view })  // Overrides the access type of head attachment, also overrides the stage to RASTER_SHADER
             .indirect_cmd.reads(cmd_view)                                   // regular old inline attachment that is not part of the head
-            .reads(daxa::TaskStage::COMPUTE_SHADER, buf_view2)              // regular old inline attachment that is not part of the head
+            .reads(daxa::TaskStages::COMPUTE_SHADER, buf_view2)              // regular old inline attachment that is not part of the head
             .executes(head_task_syntax_external_callback, f, i);
 
     }
@@ -323,7 +323,7 @@ namespace tests
                 .name = APPNAME_PREFIX("initial layout image"),
             });
             // CREATE IMAGE
-            task_graph.use_persistent_image(task_image);
+            task_graph.register_image(task_image);
             task_graph.add_task(daxa::InlineTask::Compute("read image layer 1")
                                     .reads(task_image.view().layers(1))
                                     .executes([](daxa::TaskInterface) {}));
@@ -381,7 +381,7 @@ namespace tests
 
             task_image.set_images({.images = {&image, 1}, .latest_slice_states = {init_access.begin(), init_access.end()}});
 
-            task_graph.use_persistent_image(task_image);
+            task_graph.register_image(task_image);
 
             task_graph.add_task(daxa::InlineTask::Compute("reads image layer 1")
                                     .reads(task_image.view().layers(1))
@@ -434,7 +434,7 @@ namespace tests
         });
         auto buffer = app.device.create_buffer({
             .size = 16,
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
+            .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE,
             .name = "underlying buffer",
         });
         *app.device.buffer_host_address_as<float>(buffer).value() = 0.75f;
@@ -467,8 +467,8 @@ namespace tests
             .record_debug_information = true,
             .name = "shader integration test - task graph",
         });
-        task_graph.use_persistent_image(task_image);
-        task_graph.use_persistent_buffer(task_buffer);
+        task_graph.register_image(task_image);
+        task_graph.register_buffer(task_buffer);
 
         struct WriteImage : ShaderIntegrationTaskHead::Task
         {
@@ -558,8 +558,8 @@ namespace tests
             .name = "task_graph",
         });
 
-        task_graph.use_persistent_image(persistent_task_image);
-        task_graph.use_persistent_buffer(persistent_task_buffer);
+        task_graph.register_image(persistent_task_image);
+        task_graph.register_buffer(persistent_task_buffer);
         task_graph.add_task(daxa::InlineTask::Compute("write persistent image")
                                 .writes(persistent_task_image)
                                 .executes([](daxa::TaskInterface) {}));
@@ -622,7 +622,7 @@ namespace tests
             .name = "task_graph",
         });
 
-        task_graph.use_persistent_buffer(persistent_task_buffer);
+        task_graph.register_buffer(persistent_task_buffer);
 
         task_graph.add_task(
             daxa::InlineTask::Raster("Task 1) concurrent read write buffer")
@@ -694,7 +694,7 @@ namespace tests
             .name = "task_graph",
         });
 
-        task_graph.use_persistent_image(persistent_task_image);
+        task_graph.register_image(persistent_task_image);
 
         task_graph.add_task(
             daxa::InlineTask::Raster("Task 1) read image")
@@ -764,7 +764,7 @@ namespace tests
             .name = "task graph B",
         });
 
-        task_graph_A.use_persistent_buffer(persistent_task_buffer);
+        task_graph_A.register_buffer(persistent_task_buffer);
         task_graph_A.add_task(
             daxa::InlineTask::Raster("Task 1) concurrent write read buffer")
                 .raster_shader.reads_writes_concurrent(persistent_task_buffer)
@@ -773,7 +773,7 @@ namespace tests
         task_graph_A.submit({});
         task_graph_A.complete({});
 
-        task_graph_B.use_persistent_buffer(persistent_task_buffer);
+        task_graph_B.register_buffer(persistent_task_buffer);
         task_graph_B.add_task(
             daxa::InlineTask::Raster("Task 1) concurrent write read buffer")
                 .raster_shader.reads_writes_concurrent(persistent_task_buffer)
@@ -820,7 +820,7 @@ namespace tests
             .name = "task graph",
         });
 
-        task_graph.use_persistent_buffer(tbuffer);
+        task_graph.register_buffer(tbuffer);
 
         task_graph.add_task(
             daxa::InlineTask::Compute("write 0")
@@ -888,8 +888,8 @@ namespace tests
             .name = "task graph A",
         });
 
-        task_graph.use_persistent_buffer(persistent_task_buffer);
-        task_graph.use_persistent_buffer(buffer_b);
+        task_graph.register_buffer(persistent_task_buffer);
+        task_graph.register_buffer(buffer_b);
 
         task_graph.add_task(daxa::InlineTask::Compute("write buffer b")
                                 .writes(buffer_b)

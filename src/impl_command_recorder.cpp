@@ -19,15 +19,15 @@
 
 // DO NOT VALIDATE RENDER PASS COMMANDS
 // VALIDATING THE START OF A RENDERPASS SHOULD ALWAYS BE ENOUGH!
-auto validate_queue_family(daxa_QueueFamily recorder_qf, daxa_QueueFamily command_qf) -> daxa_Result
+auto validate_queue_type(daxa_QueueType recorder_qf, daxa_QueueType command_qf) -> daxa_Result
 {
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    bool const main_on_transfer = command_qf == DAXA_QUEUE_FAMILY_MAIN && recorder_qf == DAXA_QUEUE_FAMILY_TRANSFER;
-    bool const comp_on_transfer = command_qf == DAXA_QUEUE_FAMILY_COMPUTE && recorder_qf == DAXA_QUEUE_FAMILY_TRANSFER;
-    bool const main_on_comp = command_qf == DAXA_QUEUE_FAMILY_MAIN && recorder_qf == DAXA_QUEUE_FAMILY_COMPUTE;
-    result = main_on_transfer ? DAXA_RESULT_ERROR_MAIN_FAMILY_CMD_ON_TRANSFER_QUEUE_RECORDER : result;
-    result = comp_on_transfer ? DAXA_RESULT_ERROR_COMPUTE_FAMILY_CMD_ON_TRANSFER_QUEUE_RECORDER : result;
-    result = main_on_comp ? DAXA_RESULT_ERROR_MAIN_FAMILY_CMD_ON_COMPUTE_QUEUE_RECORDER : result;
+    bool const main_on_transfer = command_qf == DAXA_QUEUE_TYPE_MAIN && recorder_qf == DAXA_QUEUE_TYPE_TRANSFER;
+    bool const comp_on_transfer = command_qf == DAXA_QUEUE_TYPE_COMPUTE && recorder_qf == DAXA_QUEUE_TYPE_TRANSFER;
+    bool const main_on_comp = command_qf == DAXA_QUEUE_TYPE_MAIN && recorder_qf == DAXA_QUEUE_TYPE_COMPUTE;
+    result = main_on_transfer ? DAXA_RESULT_ERROR_MAIN_TYPE_CMD_ON_TRANSFER_QUEUE_RECORDER : result;
+    result = comp_on_transfer ? DAXA_RESULT_ERROR_COMPUTE_TYPE_CMD_ON_TRANSFER_QUEUE_RECORDER : result;
+    result = main_on_comp ? DAXA_RESULT_ERROR_MAIN_TYPE_CMD_ON_COMPUTE_QUEUE_RECORDER : result;
     return result;
 }
 
@@ -274,7 +274,7 @@ auto daxa_cmd_copy_buffer_to_image(daxa_CommandRecorder self, daxa_BufferImageCo
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_cmd_flush_barriers(self);
     //_DAXA_CHECK_AND_REMEMBER_IDS(self, info->buffer, info->image)
-    auto const & img_slot = self->device->slot(info->image);
+    auto const & img_slot = self->device->slot(info->dst_image);
     VkBufferImageCopy const vk_buffer_image_copy{
         .bufferOffset = info->buffer_offset,
         // TODO(general): make sense of these parameters:
@@ -286,7 +286,7 @@ auto daxa_cmd_copy_buffer_to_image(daxa_CommandRecorder self, daxa_BufferImageCo
     };
     vkCmdCopyBufferToImage(
         self->command_arena->vk_command_buffer,
-        self->device->hot_slot(info->buffer).vk_buffer,
+        self->device->hot_slot(info->src_buffer).vk_buffer,
         img_slot.vk_image,
         VK_IMAGE_LAYOUT_GENERAL,
         1,
@@ -298,8 +298,8 @@ auto daxa_cmd_copy_image_to_buffer(daxa_CommandRecorder self, daxa_ImageBufferCo
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_cmd_flush_barriers(self);
-    DAXA_CHECK_AND_REMEMBER_IDS(self, info->image, info->buffer)
-    auto const & img_slot = self->device->slot(info->image);
+    DAXA_CHECK_AND_REMEMBER_IDS(self, info->src_image, info->dst_buffer)
+    auto const & img_slot = self->device->slot(info->src_image);
     VkBufferImageCopy const vk_buffer_image_copy{
         .bufferOffset = info->buffer_offset,
         // TODO(general): make sense of these parameters:
@@ -313,7 +313,7 @@ auto daxa_cmd_copy_image_to_buffer(daxa_CommandRecorder self, daxa_ImageBufferCo
         self->command_arena->vk_command_buffer,
         img_slot.vk_image,
         VK_IMAGE_LAYOUT_GENERAL,
-        self->device->hot_slot(info->buffer).vk_buffer,
+        self->device->hot_slot(info->dst_buffer).vk_buffer,
         1,
         &vk_buffer_image_copy);
     return DAXA_RESULT_SUCCESS;
@@ -373,7 +373,7 @@ auto daxa_cmd_build_acceleration_structures(daxa_CommandRecorder self, daxa_Buil
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     if ((self->device->properties.implicit_features & DAXA_IMPLICIT_FEATURE_FLAG_BASIC_RAY_TRACING) == 0)
     {
@@ -475,7 +475,7 @@ auto daxa_cmd_clear_image(daxa_CommandRecorder self, daxa_ImageClearInfo const *
         {
             _DAXA_RETURN_IF_ERROR(DAXA_RESULT_INVALID_CLEAR_VALUE, DAXA_RESULT_INVALID_CLEAR_VALUE);
         }
-        VkImageSubresourceRange const sub_range = make_subresource_range(info->dst_slice, img_slot.aspect_flags);
+        VkImageSubresourceRange const sub_range = make_subresource_range(info->slice, img_slot.aspect_flags);
         vkCmdClearDepthStencilImage(
             self->command_arena->vk_command_buffer,
             img_slot.vk_image,
@@ -490,7 +490,7 @@ auto daxa_cmd_clear_image(daxa_CommandRecorder self, daxa_ImageClearInfo const *
         {
             _DAXA_RETURN_IF_ERROR(DAXA_RESULT_INVALID_CLEAR_VALUE, DAXA_RESULT_INVALID_CLEAR_VALUE);
         }
-        VkImageSubresourceRange const sub_range = make_subresource_range(info->dst_slice, img_slot.aspect_flags);
+        VkImageSubresourceRange const sub_range = make_subresource_range(info->slice, img_slot.aspect_flags);
         vkCmdClearColorImage(
             self->command_arena->vk_command_buffer,
             img_slot.vk_image,
@@ -522,12 +522,12 @@ auto daxa_cmd_pipeline_barrier(daxa_CommandRecorder self, daxa_BarrierInfo const
 
 auto daxa_cmd_pipeline_image_barrier(daxa_CommandRecorder self, daxa_ImageBarrierInfo const * info) -> daxa_Result
 {
-    DAXA_CHECK_AND_REMEMBER_IDS(self, info->image_id)
+    DAXA_CHECK_AND_REMEMBER_IDS(self, info->image)
     if (self->image_barrier_batch_count == COMMAND_RECORDER_BARRIER_MAX_BATCH_SIZE)
     {
         daxa_cmd_flush_barriers(self);
     }
-    auto const & img_slot = self->device->slot(info->image_id);
+    auto const & img_slot = self->device->slot(info->image);
     self->image_barrier_batch.at(self->image_barrier_batch_count++) = get_vk_image_memory_barrier(*info, img_slot.view_slot.info.slice, img_slot.vk_image, img_slot.aspect_flags);
     return DAXA_RESULT_SUCCESS;
 }
@@ -555,7 +555,7 @@ auto daxa_cmd_signal_event(daxa_CommandRecorder self, daxa_EventSignalInfo const
     for (u64 i = 0; i < info->image_barrier_count; ++i)
     {
         auto const & image_barrier = info->image_barriers[i];
-        auto const & img_slot = self->device->slot(image_barrier.image_id);
+        auto const & img_slot = self->device->slot(image_barrier.image);
         dependency_infos_aux_buffer.vk_image_memory_barriers.push_back(
             get_vk_image_memory_barrier(
                 image_barrier,
@@ -588,7 +588,7 @@ auto daxa_cmd_wait_events(daxa_CommandRecorder self, daxa_EventWaitInfo const * 
         for (u64 j = 0; j < end_info.image_barrier_count; ++j)
         {
             auto const & image_barrier = end_info.image_barriers[j];
-            auto const & img_slot = self->device->slot(image_barrier.image_id);
+            auto const & img_slot = self->device->slot(image_barrier.image);
             dependency_infos_aux_buffer.vk_image_memory_barriers.push_back(get_vk_image_memory_barrier(
                 image_barrier,
                 img_slot.view_slot.info.slice,
@@ -634,7 +634,7 @@ auto daxa_cmd_push_constant(daxa_CommandRecorder self, daxa_PushConstantInfo con
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     daxa_cmd_flush_barriers(self);
     if (daxa::holds_alternative<daxa_ImplCommandRecorder::NoPipeline>(self->current_pipeline))
@@ -674,7 +674,7 @@ auto daxa_cmd_set_ray_tracing_pipeline(daxa_CommandRecorder self, daxa_RayTracin
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     daxa_cmd_flush_barriers(self);
     bool const prev_pipeline_rt = self->current_pipeline.index() == decltype(self->current_pipeline)::index_of<daxa_RayTracingPipeline>;
@@ -692,7 +692,7 @@ auto daxa_cmd_set_compute_pipeline(daxa_CommandRecorder self, daxa_ComputePipeli
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     daxa_cmd_flush_barriers(self);
     bool const prev_pipeline_compute = self->current_pipeline.index() == decltype(self->current_pipeline)::index_of<daxa_ComputePipeline>;
@@ -710,7 +710,7 @@ auto daxa_cmd_set_raster_pipeline(daxa_CommandRecorder self, daxa_RasterPipeline
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_MAIN);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_MAIN);
     _DAXA_RETURN_IF_ERROR(result, result);
     daxa_cmd_flush_barriers(self);
     bool const prev_pipeline_raster = self->current_pipeline.index() == decltype(self->current_pipeline)::index_of<daxa_RasterPipeline>;
@@ -728,7 +728,7 @@ auto daxa_cmd_trace_rays(daxa_CommandRecorder self, daxa_TraceRaysInfo const * i
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_RayTracingPipeline>(self->current_pipeline))
@@ -758,7 +758,7 @@ auto daxa_cmd_trace_rays_indirect(daxa_CommandRecorder self, daxa_TraceRaysIndir
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_RayTracingPipeline>(self->current_pipeline))
@@ -788,7 +788,7 @@ auto daxa_cmd_dispatch(daxa_CommandRecorder self, daxa_DispatchInfo const * info
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     // TODO: Check if those offsets are in range?
     if (!daxa::holds_alternative<daxa_ComputePipeline>(self->current_pipeline))
@@ -803,7 +803,7 @@ auto daxa_cmd_dispatch_indirect(daxa_CommandRecorder self, daxa_DispatchIndirect
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_COMPUTE);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_COMPUTE);
     _DAXA_RETURN_IF_ERROR(result, result);
     DAXA_CHECK_AND_REMEMBER_IDS(self, info->indirect_buffer)
     if (!daxa::holds_alternative<daxa_ComputePipeline>(self->current_pipeline))
@@ -814,35 +814,35 @@ auto daxa_cmd_dispatch_indirect(daxa_CommandRecorder self, daxa_DispatchIndirect
     return DAXA_RESULT_SUCCESS;
 }
 
-auto daxa_cmd_destroy_buffer_deferred(daxa_CommandRecorder self, daxa_BufferId id) -> daxa_Result
+auto daxa_cmd_destroy_buffer_deferred(daxa_CommandRecorder self, daxa_BufferId buffer) -> daxa_Result
 {
     DAXA_CHECK_UNCOMPLETED(self)
-    DAXA_CHECK_AND_REMEMBER_IDS(self, id)
-    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(id), DEFERRED_DESTRUCTION_BUFFER_INDEX);
+    DAXA_CHECK_AND_REMEMBER_IDS(self, buffer)
+    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(buffer), DEFERRED_DESTRUCTION_BUFFER_INDEX);
     return DAXA_RESULT_SUCCESS;
 }
 
-auto daxa_cmd_destroy_image_deferred(daxa_CommandRecorder self, daxa_ImageId id) -> daxa_Result
+auto daxa_cmd_destroy_image_deferred(daxa_CommandRecorder self, daxa_ImageId image) -> daxa_Result
 {
     DAXA_CHECK_UNCOMPLETED(self)
-    DAXA_CHECK_AND_REMEMBER_IDS(self, id)
-    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(id), DEFERRED_DESTRUCTION_IMAGE_INDEX);
+    DAXA_CHECK_AND_REMEMBER_IDS(self, image)
+    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(image), DEFERRED_DESTRUCTION_IMAGE_INDEX);
     return DAXA_RESULT_SUCCESS;
 }
 
-auto daxa_cmd_destroy_image_view_deferred(daxa_CommandRecorder self, daxa_ImageViewId id) -> daxa_Result
+auto daxa_cmd_destroy_image_view_deferred(daxa_CommandRecorder self, daxa_ImageViewId image_view) -> daxa_Result
 {
     DAXA_CHECK_UNCOMPLETED(self)
-    DAXA_CHECK_AND_REMEMBER_IDS(self, id)
-    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(id), DEFERRED_DESTRUCTION_IMAGE_VIEW_INDEX);
+    DAXA_CHECK_AND_REMEMBER_IDS(self, image_view)
+    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(image_view), DEFERRED_DESTRUCTION_IMAGE_VIEW_INDEX);
     return DAXA_RESULT_SUCCESS;
 }
 
-auto daxa_cmd_destroy_sampler_deferred(daxa_CommandRecorder self, daxa_SamplerId id) -> daxa_Result
+auto daxa_cmd_destroy_sampler_deferred(daxa_CommandRecorder self, daxa_SamplerId sampler) -> daxa_Result
 {
     DAXA_CHECK_UNCOMPLETED(self)
-    DAXA_CHECK_AND_REMEMBER_IDS(self, id)
-    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(id), DEFERRED_DESTRUCTION_SAMPLER_INDEX);
+    DAXA_CHECK_AND_REMEMBER_IDS(self, sampler)
+    self->command_arena->deferred_destructions.emplace_back(std::bit_cast<GPUResourceId>(sampler), DEFERRED_DESTRUCTION_SAMPLER_INDEX);
     return DAXA_RESULT_SUCCESS;
 }
 
@@ -850,7 +850,7 @@ auto daxa_cmd_begin_renderpass(daxa_CommandRecorder self, daxa_RenderPassBeginIn
 {
     DAXA_CHECK_UNCOMPLETED(self)
     daxa_Result result = DAXA_RESULT_SUCCESS;
-    result = validate_queue_family(self->info.queue_family, DAXA_QUEUE_FAMILY_MAIN);
+    result = validate_queue_type(self->info.queue_type, DAXA_QUEUE_TYPE_MAIN);
     _DAXA_RETURN_IF_ERROR(result, result);
     daxa_cmd_flush_barriers(self);
 
@@ -1059,11 +1059,11 @@ auto daxa_cmd_draw_indirect_count(daxa_CommandRecorder self, daxa_DrawIndirectCo
     return DAXA_RESULT_SUCCESS;
 }
 
-void daxa_cmd_draw_mesh_tasks(daxa_CommandRecorder self, uint32_t x, uint32_t y, uint32_t z)
+void daxa_cmd_draw_mesh_tasks(daxa_CommandRecorder self, daxa_DrawMeshTasksInfo const * info)
 {
     if (self->device->properties.implicit_features & DAXA_IMPLICIT_FEATURE_FLAG_MESH_SHADER)
     {
-        self->device->vkCmdDrawMeshTasksEXT(self->command_arena->vk_command_buffer, x, y, z);
+        self->device->vkCmdDrawMeshTasksEXT(self->command_arena->vk_command_buffer, info->x, info->y, info->z);
     }
 }
 
@@ -1228,7 +1228,7 @@ void daxa_destroy_command_recorder(daxa_CommandRecorder self)
 auto daxa_dvc_create_command_recorder(daxa_Device device, daxa_CommandRecorderInfo const * info, daxa_CommandRecorder * out_cmd_list) -> daxa_Result
 {
     ImplTransientCommandArena *cmd_arena = {};
-    daxa_Result result = device->commands.get_arena(device->vk_device, info->queue_family, device->queue_families[info->queue_family].vk_queue_family_index, cmd_arena);
+    daxa_Result result = device->commands.get_arena(device->vk_device, info->queue_type, device->queue_families[info->queue_type].vk_queue_type_index, cmd_arena);
     _DAXA_RETURN_IF_ERROR(result, result);
     defer {
         if (result != DAXA_RESULT_SUCCESS)

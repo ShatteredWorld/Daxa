@@ -130,7 +130,7 @@ namespace tests
                 /// Create Camera Buffer
                 cam_buffer = device.create_buffer({
                     .size = cam_buffer_size,
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("cam_buffer"),
                 });
 
@@ -159,7 +159,7 @@ namespace tests
                 };
                 auto vertex_buffer = device.create_buffer({
                     .size = sizeof(decltype(vertices)),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "vertex buffer",
                 });
                 defer { device.destroy_buffer(vertex_buffer); };
@@ -170,7 +170,7 @@ namespace tests
                 auto indices = std::array{0, 1, 2};
                 auto index_buffer = device.create_buffer({
                     .size = sizeof(daxa_u32) * indices.size(),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "index buffer",
                 });
                 defer { device.destroy_buffer(index_buffer); };
@@ -179,7 +179,7 @@ namespace tests
                 /// Transforms:
                 auto transform_buffer = device.create_buffer({
                     .size = sizeof(daxa_f32mat3x4),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "transform buffer",
                 });
                 defer { device.destroy_buffer(transform_buffer); };
@@ -221,7 +221,7 @@ namespace tests
                     std::cout << "blas_scratch_buffer_offset > blas_scratch_buffer_size" << std::endl;
                     abort();
                 }
-                blas_build_info.scratch_data = device.device_address(blas_scratch_buffer.get_state().buffers[0]).value() + blas_scratch_buffer_offset;
+                blas_build_info.scratch_data = device.device_address(blas_scratch_buffer.id()).value() + blas_scratch_buffer_offset;
                 blas_scratch_buffer_offset += scratch_alignment_size;
 
                 daxa_u64 build_aligment_size = get_aligned(build_size_info.acceleration_structure_size, ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT);
@@ -238,7 +238,7 @@ namespace tests
                         .size = build_size_info.acceleration_structure_size,
                         .name = "test blas",
                     },
-                    .buffer_id = blas_buffer,
+                    .buffer = blas_buffer,
                     .offset = blas_buffer_offset,
                 });
                 blas_build_info.dst_blas = blas;
@@ -257,7 +257,7 @@ namespace tests
                     std::array{0.15f, 0.15f, 0.15f}};
                 aabb_buffer = device.create_buffer({
                     .size = sizeof(decltype(min_max)),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "aabb buffer",
                 });
                 *device.buffer_host_address_as<decltype(min_max)>(aabb_buffer).value() = min_max;
@@ -290,7 +290,7 @@ namespace tests
                     std::cout << "blas_scratch_buffer_offset > blas_scratch_buffer_size" << std::endl;
                     abort();
                 }
-                proc_blas_build_info.scratch_data = device.device_address(blas_scratch_buffer.get_state().buffers[0]).value() + blas_scratch_buffer_offset;
+                proc_blas_build_info.scratch_data = device.device_address(blas_scratch_buffer.id()).value() + blas_scratch_buffer_offset;
                 blas_scratch_buffer_offset += scratch_alignment_size;
 
                 
@@ -307,7 +307,7 @@ namespace tests
                     .blas_info = {   .size = build_size_info.acceleration_structure_size,
                         .name = "test procedural blas",
                     },
-                    .buffer_id = blas_buffer,
+                    .buffer = blas_buffer,
                     .offset = blas_buffer_offset,
                 });
                 proc_blas_build_info.dst_blas = proc_blas;
@@ -319,7 +319,7 @@ namespace tests
                 /// create blas instances for tlas:
                 auto blas_instances_buffer = device.create_buffer({
                     .size = sizeof(daxa_BlasInstanceData) * 2,
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "blas instances array buffer",
                 });
                 defer { device.destroy_buffer(blas_instances_buffer); };
@@ -609,7 +609,7 @@ namespace tests
 
                 auto cam_staging_buffer = device.create_buffer({
                     .size = cam_buffer_size,
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .memory_flags = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = ("cam_staging_buffer"),
                 });
                 defer { device.destroy_buffer(cam_staging_buffer); };
@@ -634,7 +634,7 @@ namespace tests
 
                 recorder.pipeline_image_barrier({
                     .dst_access = daxa::AccessConsts::RAY_TRACING_SHADER_WRITE,
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                     .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
                 });
 
@@ -677,7 +677,7 @@ namespace tests
 
                 recorder.pipeline_image_barrier({
                     .src_access = daxa::AccessConsts::RAY_TRACING_SHADER_WRITE,
-                    .image_id = swapchain_image,
+                    .image = swapchain_image,
                     .layout_operation = daxa::ImageLayoutOperation::TO_PRESENT_SRC,
                 });
 

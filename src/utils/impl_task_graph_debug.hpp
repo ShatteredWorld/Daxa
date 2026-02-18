@@ -76,7 +76,7 @@ namespace daxa
 
     void validate_image_task_view(ImplTask const & task, u32 attach_index, TaskImageAttachmentInfo const & attach)
     {
-        bool const type_restriction_upheld = attach.task_access.restriction == TaskImageAttachment::ATTACHMENT_TYPE || attach.task_access.restriction == TaskAttachmentType::UNDEFINED;
+        bool const type_restriction_upheld = attach.task_access.restriction == TaskImageAttachmentInfo::ATTACHMENT_TYPE || attach.task_access.restriction == TaskAttachmentType::UNDEFINED;
         bool const view_filled_or_null = !attach.view.is_empty();
         DAXA_DBG_ASSERT_TRUE_M(
             type_restriction_upheld,
@@ -86,66 +86,6 @@ namespace daxa
             view_filled_or_null,
             std::format("Detected unassigned task image view for attachment \"{}\" (index: {}, access: {}) in task \"{}\"\n",
                         attach.name, attach_index, to_string(attach.task_access), task.name));
-    }
-
-    void validate_overlapping_attachment_views(ImplTaskGraph const & impl, ImplTask const & task)
-    {
-#if !DAXA_ENABLE_TASK_GRAPH_MK2
-#if DAXA_VALIDATION
-        for_each(
-            task.attachments,
-            [&](u32 index_a, auto const & a)
-            {
-                if (a.view.is_null())
-                    return;
-                for_each(
-                    task.attachments,
-                    [&](u32 index_b, auto const & b)
-                    {
-                        if (b.view.is_null())
-                            return;
-                        if (index_a == index_b)
-                            return;
-                        [[maybe_unused]] bool const overlapping = a.view == b.view;
-                        DAXA_DBG_ASSERT_TRUE_M(
-                            !overlapping,
-                            std::format(
-                                "Detected overlapping attachment buffer views;\n"
-                                "Attachments \"{}\" and \"{}\" both refer to the same task buffer \"{}\" in task \"{}\";\n"
-                                "All buffer attachments must refer to different buffers within each task!",
-                                a.name, b.name,
-                                impl.global_buffer_infos[a.view.index].name,
-                                task.name));
-                    },
-                    [&](u32, TaskImageAttachmentInfo const &) {});
-            },
-            [&](u32 index_a, TaskImageAttachmentInfo const & a)
-            {
-                if (a.view.is_null())
-                    return;
-                for_each(
-                    task.attachments,
-                    [&](u32, auto const &) {},
-                    [&](u32 index_b, TaskImageAttachmentInfo const & b)
-                    {
-                        if (b.view.is_null())
-                            return;
-                        if (index_a == index_b)
-                            return;
-                        [[maybe_unused]] auto const intersect = a.view == b.view && a.view.slice.intersects(b.view.slice);
-                        DAXA_DBG_ASSERT_TRUE_M(
-                            !intersect,
-                            std::format(
-                                "Detected overlapping attachment image views.\n"
-                                "Attachments \"{}\" and \"{}\" refer overlapping slices ({} and {}) to the same task image \"{}\" in task \"{}\";"
-                                "All task image attachment views and their slices must refer to disjoint parts of images within each task!",
-                                a.name, b.name, to_string(a.view.slice), to_string(b.view.slice),
-                                impl.global_image_infos.at(b.translated_view.index).name,
-                                task.name));
-                    });
-            });
-#endif
-#endif
     }
 
     template <typename BufferBlasTlasT>
@@ -161,62 +101,6 @@ namespace daxa
                             "Attachment runtime buffers must be at least as many as its shader array size!",
                             attach.name, task.name, attach.shader_array_size, attach.ids.size()));
         }
-#endif
-    }
-
-    void validate_task_image_runtime_data(ImplTask & task, TaskImageAttachmentInfo const & attach)
-    {
-#if DAXA_VALIDATION
-        if (attach.shader_array_type == TaskHeadImageArrayType::MIP_LEVELS)
-        {
-            DAXA_DBG_ASSERT_TRUE_M(
-                attach.ids.size() >= 1,
-                std::format("Detected invalid runtime image count.\n"
-                            "Attachment \"{}\" in task \"{}\" requires at least 1 runtime image, but no runtime images are present when executing task.\n"
-                            "Attachment runntime image count must be at least one for mip-array attachments!",
-                            attach.name, task.name, attach.shader_array_size, attach.ids.size()));
-        }
-        else // arg.shader_array_type == TaskHeadImageArrayType::RUNTIME_ARRAY
-        {
-            DAXA_DBG_ASSERT_TRUE_M(
-                attach.ids.size() >= attach.shader_array_size,
-                std::format("Detected invalid runtime image count.\n"
-                            "Attachment \"{}\" in task \"{}\" requires at least {} runtime image(s), but only {} runtime images are present when executing task.\n"
-                            "Attachment runntime image count must be at least the shader array size for array attachments!",
-                            attach.name, task.name, attach.shader_array_size, attach.ids.size()));
-        }
-#endif
-    }
-    
-    void validate_attachment_stages([[maybe_unused]] ImplTaskGraph const & impl, [[maybe_unused]] ImplTask & task)
-    {
-#if DAXA_VALIDATION && false
-        for_each(
-            task.attachments,
-            [&](u32, auto & attach)
-            {
-                auto const stage = attach.task_access.stage;
-                if (!task_type_allowed_stages(task.task_type, stage))
-                {
-                    DAXA_DBG_ASSERT_TRUE_M(
-                        false,
-                        std::format("Detected invalid task stage \"{}\" for attachment \"{}\" in task \"{}\".\n"
-                                    "Task type \"{}\" does not allow this stage!",
-                                    to_string(stage), attach.name, task.name, to_string(task.task_type)));
-                }
-            },
-            [&](u32, TaskImageAttachmentInfo & attach)
-            {
-                auto const stage = attach.task_access.stage;
-                if (!task_type_allowed_stages(task.task_type, stage))
-                {
-                    DAXA_DBG_ASSERT_TRUE_M(
-                        false,
-                        std::format("Detected invalid task stage \"{}\" for attachment \"{}\" in task \"{}\".\n"
-                                    "Task type \"{}\" does not allow this stage!",
-                                    to_string(stage), attach.name, task.name, to_string(task.task_type)));
-                }
-            });
 #endif
     }
 } // namespace daxa
