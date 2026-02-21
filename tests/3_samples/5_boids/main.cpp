@@ -98,9 +98,9 @@ struct App : AppWindow<App>
         .name = ("boids buffer b"),
     });
 
-    daxa::TaskImage task_swapchain_image{{.swapchain_image = true, .name = "swapchain image"}};
-    daxa::TaskBuffer task_boids_current{{.initial_buffers = {.buffers = {&boid_buffer, 1}}, .name = "task_boids_current"}};
-    daxa::TaskBuffer task_boids_old{{.initial_buffers = {.buffers = {&old_boid_buffer, 1}}, .name = "task_boids_old"}};
+    daxa::ExternalTaskImage task_swapchain_image{{.swapchain_image = true, .name = "swapchain image"}};
+    daxa::ExternalTaskBuffer task_boids_current{{.initial_buffers = {.buffers = {&boid_buffer, 1}}, .name = "task_boids_current"}};
+    daxa::ExternalTaskBuffer task_boids_old{{.initial_buffers = {.buffers = {&old_boid_buffer, 1}}, .name = "task_boids_old"}};
 
     daxa::CommandSubmitInfo submit_info;
 

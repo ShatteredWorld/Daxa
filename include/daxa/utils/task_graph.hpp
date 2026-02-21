@@ -29,28 +29,35 @@ namespace daxa
     DAXA_EXPORT_CXX auto error_message_unassigned_blas_view(std::string_view task_name, std::string_view attachment_name) -> std::string;
     DAXA_EXPORT_CXX auto error_message_no_access_sage(std::string_view task_name, std::string_view attachment_name, TaskAccess task_access) -> std::string;
 
-    struct TaskTransientBufferInfo
+    enum struct TaskResourceLifetimeType
+    {
+        TRANSIENT,
+        PERSISTENT,
+        EXTERNAL,
+    };
+
+    [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskResourceLifetimeType lifetime_type) -> std::string_view;
+
+    struct TaskBufferInfo
     {
         u64 size = {};
+        TaskResourceLifetimeType lifetime_type = TaskResourceLifetimeType::TRANSIENT;
         std::string_view name = {};
     };
 
-    using TaskTransientTlasInfo = TaskTransientBufferInfo;
+    using TaskTlasInfo = TaskBufferInfo;
 
-    struct TaskmanagedImageInfo
+    struct TaskImageInfo
     {
-        bool temporal = false;
         u32 dimensions = 2;
-        // TODO: Add option to pass span with all mutable formats here!
         Format format = Format::R8G8B8A8_UNORM;
         Extent3D size = {0, 0, 0};
         u32 mip_level_count = 1;
         u32 array_layer_count = 1;
         u32 sample_count = 1;
+        TaskResourceLifetimeType lifetime_type = TaskResourceLifetimeType::TRANSIENT;
         std::string_view name = {};
     };
-
-    using TaskTransientImageInfo = TaskmanagedImageInfo;
 
     struct TaskGraphInfo
     {
@@ -66,26 +73,11 @@ namespace daxa
         bool optimize_transient_lifetimes = true;
         /// @brief  Allows task graph to alias transient resources memory (ofc only when that wont break the program)
         bool alias_transients = {};
-        /// @brief  Some drivers have bad implementations for split barriers.
-        ///         If that is the case for you, you can turn off all use of split barriers.
-        ///         Daxa will use pipeline barriers instead if this is set.
-        bool use_split_barriers = true;
-        /// @brief  Each condition doubled the number of permutations.
-        ///         For a low number of permutations its is preferable to precompile all permutations.
-        ///         For a large number of permutations it might be preferable to only create the permutations actually used on the fly just before they are needed.
-        ///         The second option is enabled by using jit (just in time) compilation.
-        bool jit_compile_permutations = {};
-        /// @brief  Task graph can branch the execution based on conditionals. All conditionals must be set before execution and stay constant while executing.
-        ///         This is useful to create permutations of a task graph without having to create a separate task graph.
-        ///         Another benefit is that task graph can generate synch between executions of permutations while it can not generate synch between two separate task graphs.
-        usize permutation_condition_count = {};
         /// @brief  Task graph will put performance markers that are used by profilers like nsight around each tasks execution by default.
         bool enable_command_labels = true;
         std::array<f32, 4> task_graph_label_color = {0.463f, 0.333f, 0.671f, 1.0f};
         std::array<f32, 4> task_batch_label_color = {0.563f, 0.433f, 0.771f, 1.0f};
         std::array<f32, 4> task_label_color = {0.663f, 0.533f, 0.871f, 1.0f};
-        /// @brief  Records debug information about the execution if enabled. This string is retrievable with the function get_debug_string.
-        bool record_debug_information = {};
         /// @brief  AMD gpus of the generations RDNA3 and RDNA4 have hardware bugs that make image barriers still useful for cache flushes.
         ///         This boolean makes task graph insert image barriers for image sync instead of global barriers to help the drivers out.
         bool amd_rdna3_4_image_barrier_fix = true;
@@ -96,7 +88,7 @@ namespace daxa
         /// @brief  CPU Memory allocated for task data
         u32 task_memory_pool_size = 1u << 19u; // 512kib
         // Useful for debugging tools that are invisible to the graph.
-        ImageUsageFlags additional_transient_image_usage_flags = {};
+        ImageUsageFlags additional_image_usage_flags = {};
         // Useful for reflection/ debugging.
         std::function<void(TaskInterface)> pre_task_callback = {};
         std::function<void(TaskInterface)> post_task_callback = {};
@@ -122,20 +114,6 @@ namespace daxa
 
     struct TaskCompleteInfo
     {
-    };
-
-    struct TaskImageLastUse
-    {
-        ImageMipArraySlice slice = {};
-        ImageLayout layout = {};
-        Access access = {};
-    };
-
-    struct TaskGraphConditionalInfo
-    {
-        u32 condition_index = {};
-        std::function<void()> when_true = {};
-        std::function<void()> when_false = {};
     };
     
     struct TaskGraphDebugUi;
@@ -862,18 +840,18 @@ namespace daxa
         DAXA_EXPORT_CXX TaskGraph(TaskGraphInfo const & info);
         DAXA_EXPORT_CXX ~TaskGraph();
 
-        DAXA_EXPORT_CXX auto register_buffer(TaskBuffer const & buffer) -> TaskBufferView;
-        DAXA_EXPORT_CXX auto register_blas(TaskBlas const & blas) -> TaskBlasView;
-        DAXA_EXPORT_CXX auto register_tlas(TaskTlas const & tlas) -> TaskTlasView;
-        DAXA_EXPORT_CXX auto register_image(TaskImage const & image) -> TaskImageView;
+        DAXA_EXPORT_CXX auto register_buffer(ExternalTaskBuffer const & buffer) -> TaskBufferView;
+        DAXA_EXPORT_CXX auto register_blas(ExternalTaskBlas const & blas) -> TaskBlasView;
+        DAXA_EXPORT_CXX auto register_tlas(ExternalTaskTlas const & tlas) -> TaskTlasView;
+        DAXA_EXPORT_CXX auto register_image(ExternalTaskImage const & image) -> TaskImageView;
 
-        DAXA_EXPORT_CXX auto create_transient_buffer(TaskTransientBufferInfo info) -> TaskBufferView;
-        DAXA_EXPORT_CXX auto create_transient_tlas(TaskTransientTlasInfo info) -> TaskTlasView;
-        DAXA_EXPORT_CXX auto create_transient_image(TaskTransientImageInfo info) -> TaskImageView;
+        DAXA_EXPORT_CXX auto create_task_buffer(TaskBufferInfo info) -> TaskBufferView;
+        DAXA_EXPORT_CXX auto create_task_tlas(TaskTlasInfo info) -> TaskTlasView;
+        DAXA_EXPORT_CXX auto create_task_image(TaskImageInfo info) -> TaskImageView;
 
-        DAXA_EXPORT_CXX auto transient_buffer_info(TaskBufferView const & transient) -> TaskTransientBufferInfo;
-        DAXA_EXPORT_CXX auto transient_tlas_info(TaskTlasView const & transient) -> TaskTransientTlasInfo;
-        DAXA_EXPORT_CXX auto transient_image_info(TaskImageView const & transient) -> TaskTransientImageInfo;
+        DAXA_EXPORT_CXX auto task_buffer_info(TaskBufferView const & task_buffer) -> TaskBufferInfo;
+        DAXA_EXPORT_CXX auto task_tlas_info(TaskTlasView const & task_tlas) -> TaskTlasInfo;
+        DAXA_EXPORT_CXX auto task_image_info(TaskImageView const & task_image) -> TaskImageInfo;
 
         DAXA_EXPORT_CXX void clear_buffer(TaskBufferClearInfo const & info);
         DAXA_EXPORT_CXX void clear_image(TaskImageClearInfo const & info);
@@ -947,7 +925,6 @@ namespace daxa
                 attachments, asb_size, asb_align, task_type, name, inline_task.value._internal._queue);
         }
 
-        DAXA_EXPORT_CXX void conditional(TaskGraphConditionalInfo const & conditional_info);
         DAXA_EXPORT_CXX void submit(TaskSubmitInfo const & info);
         DAXA_EXPORT_CXX void present(TaskPresentInfo const & info);
 
@@ -956,8 +933,12 @@ namespace daxa
 
         DAXA_EXPORT_CXX void execute(ExecutionInfo const & info);
 
-        DAXA_EXPORT_CXX auto get_debug_string() -> std::string;
-        DAXA_EXPORT_CXX auto get_transient_memory_size() -> usize;
+        // Alternative to clear_buffer and clear_image, these functions are only for persistent resources and they can only be called AFTER recording.
+        // All persistent resources are automatically cleared to zero before the first graph execution.
+        DAXA_EXPORT_CXX void request_persistent_buffer_clear(TaskBufferView const & task_buffer);
+        DAXA_EXPORT_CXX void request_persistent_image_clear(TaskImageView const & task_image);
+
+        DAXA_EXPORT_CXX auto get_resource_memory_block_size() -> usize;
 
       protected:
         template <typename T, typename H_T>

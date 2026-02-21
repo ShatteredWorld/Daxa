@@ -26,20 +26,18 @@ namespace tests
             .name = "actual buffer",
         });
 
-        auto persistent_task_buffer = daxa::TaskBuffer(daxa::TaskBufferInfo{
+        auto persistent_task_buffer = daxa::ExternalTaskBuffer(daxa::ExternalTaskBufferInfo{
             .initial_buffers = {.buffers = {&buffer, 1}},
             .name = "persistent buffer",
         });
 
         auto task_graph_A = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "task_graph_a",
         });
 
         auto task_graph_B = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "task_graph_b",
         });
 
@@ -99,8 +97,8 @@ namespace tests
             .name = "actual image",
         });
 
-        auto persistent_task_image = daxa::TaskImage(
-            daxa::TaskImageInfo{
+        auto persistent_task_image = daxa::ExternalTaskImage(
+            daxa::ExternalTaskImageInfo{
                 .initial_images = {.images = {&image, 1}},
                 .swapchain_image = false,
                 .name = "image",
@@ -108,7 +106,6 @@ namespace tests
 
         auto task_graph_A = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "task_graph_a",
         });
 
@@ -126,7 +123,6 @@ namespace tests
 
         auto task_graph_B = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "task_graph_b",
         });
         task_graph_B.register_image(persistent_task_image);

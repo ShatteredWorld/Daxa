@@ -140,23 +140,22 @@ namespace tests
             auto task_graph = daxa::TaskGraph({
                 .device = device,
                 .alias_transients = true,
-                .record_debug_information = true,
                 .staging_memory_pool_size = 4'000'000,
                 .name = "task_graph",
             });
 
             // ========================================== Create resources ====================================================
-            auto image_A = task_graph.create_transient_image({.dimensions = 3,
+            auto image_A = task_graph.create_task_image({.dimensions = 3,
                                                               .format = daxa::Format::R32_SFLOAT,
                                                               .size = {IMAGE_A_SIZE.x, IMAGE_A_SIZE.y, IMAGE_A_SIZE.z},
                                                               .name = "Image A"});
 
-            auto image_B = task_graph.create_transient_image({.dimensions = 3,
+            auto image_B = task_graph.create_task_image({.dimensions = 3,
                                                               .format = daxa::Format::R32_SFLOAT,
                                                               .size = {IMAGE_B_SIZE.x, IMAGE_B_SIZE.y, IMAGE_B_SIZE.z},
                                                               .name = "Image B"});
 
-            auto image_C = task_graph.create_transient_image({.dimensions = 3,
+            auto image_C = task_graph.create_task_image({.dimensions = 3,
                                                               .format = daxa::Format::R32_SFLOAT,
                                                               .size = {IMAGE_C_SIZE.x, IMAGE_C_SIZE.y, IMAGE_C_SIZE.z},
                                                               .name = "Image C"});
@@ -250,14 +249,12 @@ namespace tests
 
             auto task_graph = daxa::TaskGraph({
                 .device = device,
-                .permutation_condition_count = 1,
-                .record_debug_information = true,
                 .staging_memory_pool_size = 4'000'000,
                 .name = "task_graph",
             });
 
             // ========================================== Record tasks =======================================================
-            auto image_base = task_graph.create_transient_image({.dimensions = 3,
+            auto image_base = task_graph.create_task_image({.dimensions = 3,
                                                                  .format = daxa::Format::R32_SFLOAT,
                                                                  .size = {IMAGE_BASE_SIZE.x, IMAGE_BASE_SIZE.y, IMAGE_BASE_SIZE.z},
                                                                  .name = "Image Base"});
@@ -273,7 +270,7 @@ namespace tests
                 .condition_index = 0,
                 .when_true = [&]()
                 {
-                    auto image_A = task_graph.create_transient_image({
+                    auto image_A = task_graph.create_task_image({
                         .dimensions = 3,
                         .format = daxa::Format::R32_SFLOAT,
                         .size = {IMAGE_A_SIZE.x, IMAGE_A_SIZE.y, IMAGE_A_SIZE.z},
@@ -295,7 +292,7 @@ namespace tests
                 },
                 .when_false = [&]()
                 {
-                    auto image_B = task_graph.create_transient_image({
+                    auto image_B = task_graph.create_task_image({
                         .dimensions = 3,
                         .format = daxa::Format::R32_SFLOAT,
                         .size = {IMAGE_B_SIZE.x, IMAGE_B_SIZE.y, IMAGE_B_SIZE.z},
@@ -373,20 +370,19 @@ namespace tests
             auto task_graph = daxa::TaskGraph({
                 .device = device,
                 .reorder_tasks = false, // Disable reordering for testing purposes.
-                .record_debug_information = true,
                 .staging_memory_pool_size = 4'000'000,
                 .name = "task_graph",
             });
 
             // Declare transient resources.
             auto long_life_buffer =
-                task_graph.create_transient_buffer({
+                task_graph.create_task_buffer({
                     .size = LONG_LIFE_BUFFER_SIZE * sizeof(daxa::u32),
                     .name = "long life buffer",
                 });
 
             auto medium_life_image =
-                task_graph.create_transient_image({
+                task_graph.create_task_image({
                     .dimensions = 3,
                     .format = daxa::Format::R32_SFLOAT,
                     .size = daxa::Extent3D{MEDIUM_LIFE_IMAGE_SIZE.x, MEDIUM_LIFE_IMAGE_SIZE.y, MEDIUM_LIFE_IMAGE_SIZE.z},
@@ -394,7 +390,7 @@ namespace tests
                 });
 
             auto long_life_image =
-                task_graph.create_transient_image({
+                task_graph.create_task_image({
                     .dimensions = 3,
                     .format = daxa::Format::R32_SFLOAT,
                     .size = {LONG_LIFE_IMAGE_SIZE.x, LONG_LIFE_IMAGE_SIZE.y, LONG_LIFE_IMAGE_SIZE.z},
@@ -402,7 +398,7 @@ namespace tests
                 });
 
             auto short_life_image =
-                task_graph.create_transient_image({
+                task_graph.create_task_image({
                     .dimensions = 3,
                     .format = daxa::Format::R32_SFLOAT,
                     .size = {SHORT_LIFE_IMAGE_SIZE.x, SHORT_LIFE_IMAGE_SIZE.y, SHORT_LIFE_IMAGE_SIZE.z},
@@ -410,7 +406,7 @@ namespace tests
                 });
 
             auto short_life_buffer =
-                task_graph.create_transient_buffer({
+                task_graph.create_task_buffer({
                     .size = SHORT_LIFE_BUFFER_SIZE * sizeof(daxa::u32),
                     .name = "tiny size short life buffer",
                 });

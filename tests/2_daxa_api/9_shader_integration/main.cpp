@@ -106,16 +106,15 @@ namespace tests
 
         auto task_graph = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "shader integration test - alignment",
         });
 
-        auto src = daxa::TaskBuffer{{
+        auto src = daxa::ExternalTaskBuffer{{
             .initial_buffers = {.buffers = {&src_buffer, 1}},
             .name = "align_test_src",
         }};
         task_graph.register_buffer(src);
-        auto dst = daxa::TaskBuffer{{
+        auto dst = daxa::ExternalTaskBuffer{{
             .initial_buffers = {.buffers = {&dst_buffer, 1}},
             .name = "align_test_dst",
         }};
@@ -194,25 +193,24 @@ namespace tests
 
         auto task_graph = daxa::TaskGraph({
             .device = device,
-            .record_debug_information = true,
             .name = "shader integration test - alignment",
         });
 
-        auto handles_buffer = task_graph.create_transient_buffer({
+        auto handles_buffer = task_graph.create_task_buffer({
             .size = sizeof(Handles),
             .name = "handles buffer",
         });
-        auto f32_image = task_graph.create_transient_image({
+        auto f32_image = task_graph.create_task_image({
             .format = daxa::Format::R32_SFLOAT,
             .size = {1, 1, 1},
             .name = "f32 image",
         });
-        auto u32_image = task_graph.create_transient_image({
+        auto u32_image = task_graph.create_task_image({
             .format = daxa::Format::R32_UINT,
             .size = {1, 1, 1},
             .name = "u32 image",
         });
-        auto f32_buffer = task_graph.create_transient_buffer({
+        auto f32_buffer = task_graph.create_task_buffer({
             .size = sizeof(f32),
             .name = "f32 buffer",
         });
