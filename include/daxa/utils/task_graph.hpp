@@ -860,47 +860,6 @@ namespace daxa
         DAXA_EXPORT_CXX void copy_buffer_to_buffer(TaskBufferCopyInfo const & info);
         DAXA_EXPORT_CXX void copy_image_to_image(TaskImageCopyInfo const & info);
 
-        template <typename TTask>
-            requires std::is_base_of_v<IPartialTask, TTask> && std::is_trivially_copy_constructible_v<TTask>
-        void add_task(TTask const & task)
-        {
-            using NoRefTTask = std::remove_reference_t<TTask>;
-            static constexpr auto const & ATTACHMENTS = NoRefTTask::AT._internal.value;
-
-            // Convert, allocate and copy attachments
-            std::array<TaskAttachmentInfo, NoRefTTask::Info::ATTACHMENT_COUNT> converted_attachments = {};
-            auto default_stage = task_type_default_stage(NoRefTTask::Info::TYPE);
-            auto view_array = task.views.convert_to_array();
-            for (u32 i = 0; i < NoRefTTask::Info::ATTACHMENT_COUNT; ++i)
-            {
-                converted_attachments[i] = detail::complete_head_attachment_info(ATTACHMENTS[i], view_array[i], default_stage, TTask::Info::NAME);
-            }
-            auto attachment_memory = std::span{ 
-                reinterpret_cast<TaskAttachmentInfo *>(
-                    allocate_task_memory(sizeof(TaskAttachmentInfo) * NoRefTTask::Info::ATTACHMENT_COUNT, alignof(TaskAttachmentInfo))
-                ), 
-                NoRefTTask::Info::ATTACHMENT_COUNT,
-            };
-            std::memcpy(attachment_memory.data(), converted_attachments.data(), sizeof(TaskAttachmentInfo) * NoRefTTask::Info::ATTACHMENT_COUNT);
-
-            // Allocate and assign task callback memory
-            auto task_callback_memory = reinterpret_cast<u64*>(allocate_task_memory(sizeof(NoRefTTask), alignof(NoRefTTask)));
-            std::memcpy(task_callback_memory, &task, sizeof(NoRefTTask));
-
-            // Create callback adapter
-            auto task_callback = [](daxa::TaskInterface ti, void * v)
-            {
-                reinterpret_cast<NoRefTTask*>(v)->callback(ti);
-            };
-
-            u32 asb_size = detail::get_asb_size_and_alignment(converted_attachments).size;
-            u32 asb_align = detail::get_asb_size_and_alignment(converted_attachments).alignment;
-            TaskType task_type = TTask::Info::TYPE;
-            std::string_view name = TTask::Info::NAME;
-            add_task(
-                task_callback, task_callback_memory,
-                attachment_memory, asb_size, asb_align, task_type, name, QUEUE_MAIN);
-        }
         template <typename TaskHeadType>
         void add_task(TInlineTask<TaskHeadType> const & inline_task)
         {

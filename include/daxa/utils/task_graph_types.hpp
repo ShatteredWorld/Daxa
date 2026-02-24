@@ -292,7 +292,7 @@ namespace daxa
     [[nodiscard]] DAXA_EXPORT_CXX auto to_string(TaskGPUResourceView const & id) -> std::string;
 
     struct DAXA_EXPORT_CXX TaskBufferView
-    {        
+    {
         u32 task_graph_index : 31 = {};
         u32 double_buffer_index : 1 = {};
         u32 index = {};
@@ -320,7 +320,7 @@ namespace daxa
     static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskBufferView>);
 
     struct DAXA_EXPORT_CXX TaskBlasView
-    {        
+    {
         u32 task_graph_index : 31 = {};
         u32 double_buffer_index : 1 = {};
         u32 index = {};
@@ -348,7 +348,7 @@ namespace daxa
     static_assert(std::is_layout_compatible_v<TaskGPUResourceView, TaskBlasView>);
 
     struct DAXA_EXPORT_CXX TaskTlasView
-    {        
+    {
         u32 task_graph_index : 31 = {};
         u32 double_buffer_index : 1 = {};
         u32 index = {};
@@ -561,12 +561,13 @@ namespace daxa
         TaskAccess task_access = {};
         Access access = {};
 
-        union {
+        union
+        {
             BufferId buffer;
             BlasId blas;
             TlasId tlas;
             ImageId image;
-        } id = { .buffer = {} };
+        } id = {.buffer = {}};
     };
     static_assert(std::is_standard_layout_v<TaskCommonAttachmentInfo>);
 
@@ -878,11 +879,6 @@ namespace daxa
         usize SIZE = N - 1;
     };
 
-    // Used for simpler concept template constraint in add_task.
-    struct IPartialTask
-    {
-    };
-
     struct TaskViewUndefined
     {
     };
@@ -1040,7 +1036,7 @@ namespace daxa
             {                                                                                    \
                 return std::span{_internal.value};                                               \
             }                                                                                    \
-            constexpr auto at(daxa::usize idx) const -> daxa::TaskAttachmentInfo const &             \
+            constexpr auto at(daxa::usize idx) const -> daxa::TaskAttachmentInfo const &         \
                 requires(!!TDecl::DECL_ATTACHMENTS)                                              \
             {                                                                                    \
                 return _internal.value.at(idx);                                                  \
@@ -1063,7 +1059,7 @@ namespace daxa
     typename TDecl::TaskBufferT NAME =                                         \
         {TDecl::template process_attachment_decl<typename TDecl::TaskBufferT>( \
             _internal,                                                         \
-            daxa::TaskBufferAttachmentInfo{                                        \
+            daxa::TaskBufferAttachmentInfo{                                    \
                 .name = #NAME,                                                 \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                     \
                 __VA_ARGS__})};
@@ -1072,7 +1068,7 @@ namespace daxa
     typename TDecl::TaskBlasT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskBlasT>( \
             _internal,                                                       \
-            daxa::TaskBlasAttachmentInfo{                                        \
+            daxa::TaskBlasAttachmentInfo{                                    \
                 .name = #NAME,                                               \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                   \
             })};
@@ -1081,7 +1077,7 @@ namespace daxa
     typename TDecl::TaskTlasT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskTlasT>( \
             _internal,                                                       \
-            daxa::TaskTlasAttachmentInfo{                                        \
+            daxa::TaskTlasAttachmentInfo{                                    \
                 .name = #NAME,                                               \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                   \
                 __VA_ARGS__})};
@@ -1090,7 +1086,7 @@ namespace daxa
     typename TDecl::TaskImageT const NAME =                                   \
         {TDecl::template process_attachment_decl<typename TDecl::TaskImageT>( \
             _internal,                                                        \
-            daxa::TaskImageAttachmentInfo{                                        \
+            daxa::TaskImageAttachmentInfo{                                    \
                 .name = #NAME,                                                \
                 .task_access = []() { using namespace daxa::TaskAccessConsts; return TASK_ACCESS; }(),                                    \
                 __VA_ARGS__})};
@@ -1132,14 +1128,6 @@ namespace daxa
     static constexpr decltype(Info::ATTACHMENT_COUNT) ATTACHMENT_COUNT = Info::ATTACHMENT_COUNT;                                                        \
     static constexpr auto const & ATTACHMENTS = Info::ATTACHMENTS;                                                                                      \
     static constexpr auto const & AT = Info::ATTACHMENTS;                                                                                               \
-    struct Task : public daxa::IPartialTask                                                                                                             \
-    {                                                                                                                                                   \
-        using Info = Info;                                                                                                                              \
-        static constexpr auto const & ATTACHMENTS = Info::ATTACHMENTS;                                                                                  \
-        static constexpr auto const & AT = Info::ATTACHMENTS;                                                                                           \
-        using Views = Info::Views;                                                                                                                      \
-        using AttachmentViews = Info::Views;                                                                                                            \
-    };                                                                                                                                                  \
     }                                                                                                                                                   \
     ;
 
