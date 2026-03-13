@@ -7,12 +7,91 @@
 #include <utility>
 #include <format>
 #include <bit>
+#include <type_traits>
 
 #include "impl_device.hpp"
 #include "impl_instance.hpp"
 
 static_assert(sizeof(daxa::Queue) == sizeof(daxa_Queue));
 static_assert(alignof(daxa::Queue) == alignof(daxa_Queue));
+
+#define DAXA_ASSERT_INFO_SAME_SIZE(T) static_assert(sizeof(daxa::T) == sizeof(daxa_##T))
+DAXA_ASSERT_INFO_SAME_SIZE(AccelerationStructureBuildSizesInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(AttachmentResolveInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BarrierInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BinarySemaphoreInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BlasAabbGeometryInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BlasBuildInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BlasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BlasTriangleGeometryInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BlendInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferBlasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferClearInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferImageCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(BufferTlasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ChooseSwapchainSurfaceFormatInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(CommandLabelInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(CommandRecorderInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(CommandSubmitInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ComputePipelineInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ConservativeRasterInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DepthBiasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DepthTestInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DispatchIndirectInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DispatchInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawIndexedInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawIndirectCountInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawIndirectInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawMeshTasksIndirectCountInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawMeshTasksIndirectInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(DrawMeshTasksInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(EventInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(EventSignalInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(EventWaitInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(HostImageLayoutOperationInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageBarrierInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageBlitInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageBufferCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageClearInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageToMemoryCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ImageViewInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(InstanceInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(LineRasterInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(MemoryBlockBufferInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(MemoryBlockImageInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(MemoryBlockInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(MemoryBlockTlasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(MemoryToImageCopyInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(PresentInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(PushConstantInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RasterizerInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RasterPipelineInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RayTracingPipelineInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RayTracingShaderGroupInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RenderAttachmentInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(RenderPassBeginInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ResetEventInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ResetTimestampsInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(SamplerInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(SetIndexBufferInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(ShaderInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(SwapchainInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TesselationInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TimelineQueryPoolInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TimelineSemaphoreInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TlasBuildInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TlasInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TlasInstanceInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TraceRaysIndirectInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(TraceRaysInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(WaitOnSubmitInfo);
+DAXA_ASSERT_INFO_SAME_SIZE(WriteTimestampInfo);
+#undef DAXA_ASSERT_INFO_SAME_SIZE
 
 // --- Begin Helpers ---
 
@@ -147,6 +226,7 @@ auto daxa_result_to_string(daxa_Result result) -> std::string_view
     case DAXA_RESULT_ERROR_WAYLAND_SURFACE_IS_NULL: return "DAXA_RESULT_ERROR_WAYLAND_SURFACE_IS_NULL";
     case DAXA_RESULT_ERROR_WAYLAND_FAILED_TO_CREATE_SURFACE: return "DAXA_RESULT_ERROR_WAYLAND_FAILED_TO_CREATE_SURFACE";
     case DAXA_RESULT_ERROR_QUEUE_DOES_NOT_SUPPORT_SURFACE: return "DAXA_RESULT_ERROR_QUEUE_DOES_NOT_SUPPORT_SURFACE";
+    case DAXA_RESULT_ERROR_INVALID_POINTER_PARAMETER: return "DAXA_RESULT_ERROR_INVALID_POINTER_PARAMETER";
     case DAXA_RESULT_MAX_ENUM: return "UNKNOWN";
     default: return "UNKNOWN";
     }
@@ -169,7 +249,7 @@ void check_result(daxa_Result result, char const * message, std::array<daxa_Resu
                          message)
                   << std::flush;
 #endif
-        throw std::runtime_error({});
+        std::abort();
     }
 }
 
@@ -664,59 +744,75 @@ namespace daxa
 
     auto Device::get_supported_present_modes(NativeWindowInfo native_window_info) const -> std::vector<PresentMode>
     {
-        auto * c_device = rc_cast<daxa_Device>(object);
-        VkSurfaceKHR surface = {};
-        auto result = create_surface(
-            c_device->instance,
-            std::bit_cast<daxa_NativeWindowInfo>(native_window_info),
-            &surface);
-        check_result(result, "could not create surface");
-        defer
-        {
-            vkDestroySurfaceKHR(c_device->instance->vk_instance, surface, nullptr);
-        };
-
-        u32 present_mode_count = {};
-        auto vk_result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-            c_device->vk_physical_device,
-            surface,
-            &present_mode_count,
-            nullptr);
-        if (vk_result != VK_SUCCESS)
-        {
-            check_result(std::bit_cast<daxa_Result>(vk_result), "failed to query present modes");
-        }
+        auto const c_native_window_info = std::bit_cast<daxa_NativeWindowInfo>(native_window_info);
+        u32 present_mode_count = 0;
+        check_result(
+            daxa_dvc_report_supported_present_modes(
+                rc_cast<daxa_Device>(object),
+                c_native_window_info,
+                &present_mode_count,
+                nullptr),
+            "failed to query present mode count");
 
         std::vector<PresentMode> ret = {};
-        ret.resize(static_cast<usize>(present_mode_count));
-        vk_result = vkGetPhysicalDeviceSurfacePresentModesKHR(
-            c_device->vk_physical_device,
-            surface,
-            &present_mode_count,
-            r_cast<VkPresentModeKHR *>(ret.data()));
-        if (vk_result != VK_SUCCESS)
-        {
-            check_result(std::bit_cast<daxa_Result>(vk_result), "failed to query present modes");
-        }
-
-        // WORKAROUND
-        // Nvidia drivers report present modes from extensions that were not enabled :/.
-        for (auto iter = ret.begin(); iter != ret.end();)
-        {
-            if (*iter != PresentMode::IMMEDIATE &&
-                *iter != PresentMode::MAILBOX &&
-                *iter != PresentMode::FIFO &&
-                *iter != PresentMode::FIFO_RELAXED)
-            {
-                iter = ret.erase(iter);
-            }
-            else
-            {
-                ++iter;
-            }
-        }
-
+        ret.resize(present_mode_count);
+        check_result(
+            daxa_dvc_report_supported_present_modes(
+                rc_cast<daxa_Device>(object),
+                c_native_window_info,
+                &present_mode_count,
+                r_cast<VkPresentModeKHR *>(ret.data())),
+            "failed to query present modes");
+        ret.resize(present_mode_count);
         return ret;
+    }
+
+    auto Device::get_supported_image_formats(NativeWindowInfo native_window_info) const -> std::vector<Format>
+    {
+        auto const c_native_window_info = std::bit_cast<daxa_NativeWindowInfo>(native_window_info);
+        u32 surface_format_count = 0;
+        check_result(
+            daxa_dvc_report_supported_image_formats(
+                rc_cast<daxa_Device>(object),
+                c_native_window_info,
+                &surface_format_count,
+                nullptr),
+            "failed to query surface format count");
+
+        std::vector<VkSurfaceFormatKHR> c_surface_formats = {};
+        c_surface_formats.resize(surface_format_count);
+        check_result(
+            daxa_dvc_report_supported_image_formats(
+                rc_cast<daxa_Device>(object),
+                c_native_window_info,
+                &surface_format_count,
+                c_surface_formats.data()),
+            "failed to query surface formats");
+        c_surface_formats.resize(surface_format_count);
+
+        std::vector<Format> ret = {};
+        ret.reserve(surface_format_count);
+        for (auto const & surface_format : c_surface_formats)
+        {
+            ret.push_back(std::bit_cast<Format>(surface_format.format));
+        }
+        return ret;
+    }
+
+    auto Device::choose_swapchain_surface_format(ChooseSwapchainSurfaceFormatInfo const & info) const -> SurfaceFormat
+    {
+        VkSurfaceFormatKHR out_format = {};
+        check_result(
+            daxa_dvc_choose_swapchain_surface_format(
+                rc_cast<daxa_Device>(object),
+                reinterpret_cast<daxa_ChooseSwapchainSurfaceFormatInfo const*>(&info),
+                &out_format),
+            "failed to choose swapchain surface format");
+
+        return SurfaceFormat{
+            .format = std::bit_cast<Format>(out_format.format),
+            .color_space = std::bit_cast<ColorSpace>(out_format.colorSpace),
+        };
     }
 
     auto Device::inc_refcnt(ImplHandle const * object) -> u64
