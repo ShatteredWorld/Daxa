@@ -87,14 +87,12 @@ auto main() -> int
 
     daxa::Swapchain swapchain = device.create_swapchain({
         .native_window_info = native_window,
-        .surface_format_selector = [](daxa::Format format, daxa::ColorSpace colorspace)
-        {
-            switch (format)
-            {
-            case daxa::Format::R8G8B8A8_UINT: return 100;
-            default: return daxa::default_format_score(format, colorspace);
+        .surface_format = device.choose_swapchain_surface_format({
+            .native_window_info = native_window, 
+            .preferred_formats = {
+                std::array{daxa::SurfaceFormat{.format = daxa::Format::R8G8B8A8_UNORM, .color_space = daxa::ColorSpace::SRGB_NONLINEAR}},
             }
-        },
+        }),
         .present_mode = daxa::PresentMode::FIFO,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST,
         .name = "my swapchain",
