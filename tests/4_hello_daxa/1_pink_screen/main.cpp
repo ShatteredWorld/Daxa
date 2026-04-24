@@ -9,7 +9,7 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-auto get_native_window(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowInfo
+auto get_native_window_info(GLFWwindow * glfw_window_ptr, daxa::u32 width, daxa::u32 height) -> daxa::NativeWindowInfo
 {
     daxa::NativeWindowInfo info;
 #if defined(_WIN32)
@@ -17,26 +17,19 @@ auto get_native_window(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowInfo
         .hwnd = glfwGetWin32Window(glfw_window_ptr),
     };
 #elif defined(__linux__)
-    switch(glfwGetPlatform())
+    switch (glfwGetPlatform())
     {
-    case GLFW_PLATFORM_X11:
-        info = daxa::NativeWindowInfoXlib{
-            .window = reinterpret_cast<void *>(glfwGetX11Window(glfw_window_ptr)),
-        };
-        break;
     case GLFW_PLATFORM_WAYLAND:
-        daxa::i32 width;
-        daxa::i32 height;
-        glfwGetWindowSize(glfw_window_ptr, &width, &height);
-        info = daxa::NativeWindowInfoWayland{
-            .display = reinterpret_cast<void *>(glfwGetWaylandDisplay()),
-            .surface = reinterpret_cast<void *>(glfwGetWaylandWindow(glfw_window_ptr)),
-            .width = static_cast<daxa::u32>(width),
-            .height = static_cast<daxa::u32>(height),
+        return daxa::NativeWindowInfoWayland {
+            .display = glfwGetWaylandDisplay(),
+            .surface = glfwGetWaylandWindow(glfw_window_ptr),
+            .width   = width,
+            .height  = height,
         };
-        break;
     default:
-        throw std::runtime_error("Unsupported platform for native window retrieval");
+        return daxa::NativeWindowInfoXlib {
+            .window = reinterpret_cast<void*>(glfwGetX11Window(glfw_window_ptr))
+        };
     }
 #endif
     return info;
@@ -68,7 +61,7 @@ auto main() -> int
             info.width = static_cast<daxa::u32>(width);
             info.height = static_cast<daxa::u32>(height);
         });
-    auto native_window = get_native_window(glfw_window_ptr);
+    auto native_window = get_native_window_info(glfw_window_ptr, window_info.width, window_info.height);
 
     // First thing we do is create a Daxa instance. This essentially exists
     // to initialize the Vulkan instance, and allows for the creation of multiple
@@ -143,7 +136,7 @@ auto main() -> int
     daxa::Swapchain swapchain = device.create_swapchain({
         .native_window_info = native_window,
         .surface_format = device.choose_swapchain_surface_format({
-            .native_window_info = native_window, 
+            .native_window_info = native_window,
             .preferred_formats = {
                 std::array{daxa::SurfaceFormat{.format = daxa::Format::R8G8B8A8_UNORM, .color_space = daxa::ColorSpace::SRGB_NONLINEAR}},
             }
