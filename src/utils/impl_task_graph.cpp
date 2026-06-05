@@ -783,6 +783,8 @@ namespace daxa
         auto & impl = *r_cast<ImplExternalResource *>(this->object);
         return ExternalTaskImageInfo{
             .image = impl.id.image,
+            .is_general_layout = impl.pre_graph_is_general_layout,
+            .is_swapchain_image = impl.is_swapchain_image,
             .name = impl.name,
         };
     }
@@ -799,9 +801,8 @@ namespace daxa
 
         impl.id.image = image;
         impl.pre_graph_queue_bits = {};
-        impl.pre_graph_is_general_layout = false;
-        impl.was_presented = false;
         impl.pre_graph_is_general_layout = is_general_layout;
+        impl.was_presented = false;
     }
 
     void ExternalTaskImage::swap_images(ExternalTaskImage & other)
@@ -944,7 +945,7 @@ namespace daxa
 
         impl.external_idx_to_resource_table[global_unique_external_index] = std::pair{&impl.resources.back(), index};
 
-        return {static_cast<u32>(impl.resources.size() - 1u), impl.unique_index};
+        return TaskImageView{ .task_graph_index = impl.unique_index, .index = static_cast<u32>(impl.resources.size() - 1u) };
     }
 
     auto create_buffer_helper(ImplTaskGraph & impl, TaskResourceKind kind, usize size, TaskResourceLifetimeType lifetime_type, std::string_view name)
@@ -3600,10 +3601,11 @@ namespace daxa
         // Reset clear requests
         impl.resource_clear_request_count = {};
 
+#if DAXA_BUILT_WITH_UTILS_IMGUI
         /// =======================
         /// ==== DEBUG UI HOOK ====
         /// =======================
-#if DAXA_BUILT_WITH_UTILS_IMGUI
+
         ImplTaskGraphDebugUi * debug_ui_context = info.debug_ui ? info.debug_ui->get() : nullptr;
         if (debug_ui_context && debug_ui_context->resource_viewer_states.size() == 0)
         {
