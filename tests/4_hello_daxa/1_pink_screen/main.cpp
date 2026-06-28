@@ -13,9 +13,7 @@ auto get_native_window_info(GLFWwindow * glfw_window_ptr, daxa::u32 width, daxa:
 {
     daxa::NativeWindowInfo info;
 #if defined(_WIN32)
-    info = daxa::NativeWindowInfoWin32{
-        .hwnd = glfwGetWin32Window(glfw_window_ptr),
-    };
+    return daxa::NativeWindowInfoWin32{glfwGetWin32Window(glfw_window_ptr)};
 #elif defined(__linux__)
     switch (glfwGetPlatform())
     {
@@ -134,12 +132,9 @@ auto main() -> int
     // format type selector, the additional image uses (image uses will be explained later),
     // and present mode (this controls sync)
     daxa::Swapchain swapchain = device.create_swapchain({
-        .native_window_info = native_window,
+        .native_window_info = get_native_window_info(glfw_window_ptr, window_info.width, window_info.height),
         .surface_format = device.choose_swapchain_surface_format({
-            .native_window_info = native_window,
-            .preferred_formats = {
-                std::array{daxa::SurfaceFormat{.format = daxa::Format::R8G8B8A8_UNORM, .color_space = daxa::ColorSpace::SRGB_NONLINEAR}},
-            }
+            .native_window_info = get_native_window_info(glfw_window_ptr, window_info.width, window_info.height),
         }),
         .present_mode = daxa::PresentMode::FIFO,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST,
@@ -191,7 +186,7 @@ auto main() -> int
         recorder.clear_image({
             .image = swapchain_image,
             .slice = swapchain_image_full_slice,
-            .clear_value = std::array<daxa::f32, 4>{1.0f, 0.0f, 1.0f, 1.0f}
+            .clear_value = std::array<daxa::f32, 4>{1.0f, 0.0f, 1.0f, 1.0f},
         });
 
         recorder.pipeline_image_barrier({
@@ -203,16 +198,13 @@ auto main() -> int
         // Here we create executable commands from the currently recorded commands from the command recorder.
         // After doing this the recorder is empty and can record and create new executable commands later.
         auto executalbe_commands = recorder.complete_current_commands();
-        // But for now we only need this one executable commands blob, and we destroy the recorder.
-        // Encoders CAN NOT be keept over multiple frames. They are temporary objects and need to be destroyed before calling collect_garbage!
-        recorder.~CommandRecorder();
 
         auto const & acquire_semaphore = swapchain.current_acquire_semaphore();
         auto const & present_semaphore = swapchain.current_present_semaphore();
         device.submit_commands(daxa::CommandSubmitInfo{
-            .command_lists = std::array{executalbe_commands},
-            .wait_binary_semaphores = std::array{acquire_semaphore},
-            .signal_binary_semaphores = std::array{present_semaphore},
+            .command_lists = std::array{executalbe_commands},           
+            .wait_binary_semaphores = std::array{acquire_semaphore},    
+            .signal_binary_semaphores = std::array{present_semaphore},  
             .signal_timeline_semaphores = std::array{swapchain.current_timeline_pair()},
         });
         device.present_frame({

@@ -20,7 +20,7 @@
 #endif
 #include <GLFW/glfw3native.h>
 
-auto get_native_window(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowInfo
+auto get_native_window_info(GLFWwindow * glfw_window_ptr) -> daxa::NativeWindowInfo
 {
     daxa::NativeWindowInfo info;
 #if defined(_WIN32)
@@ -78,20 +78,15 @@ auto main() -> int
             window_info_ref.width = static_cast<daxa::u32>(width);
             window_info_ref.height = static_cast<daxa::u32>(height);
         });
-    auto native_window = get_native_window(glfw_window_ptr);
-
     daxa::Instance instance = daxa::create_instance({});
 
     // Let instance auto select a device
     daxa::Device device = instance.create_device_2(instance.choose_device({}, {}));
 
     daxa::Swapchain swapchain = device.create_swapchain({
-        .native_window_info = native_window,
+        .native_window_info = get_native_window_info(glfw_window_ptr),
         .surface_format = device.choose_swapchain_surface_format({
-            .native_window_info = native_window, 
-            .preferred_formats = {
-                std::array{daxa::SurfaceFormat{.format = daxa::Format::R8G8B8A8_UNORM, .color_space = daxa::ColorSpace::SRGB_NONLINEAR}},
-            }
+            .native_window_info = get_native_window_info(glfw_window_ptr),
         }),
         .present_mode = daxa::PresentMode::FIFO,
         .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST,
