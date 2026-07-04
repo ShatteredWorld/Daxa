@@ -465,9 +465,7 @@ auto daxa_cmd_clear_image(daxa_CommandRecorder self, daxa_ImageClearInfo const *
     daxa_cmd_flush_barriers(self);
     DAXA_CHECK_AND_REMEMBER_IDS(self, info->image)
     auto const & img_slot = self->device->slot(info->image);
-    bool const is_image_depth_stencil =
-        is_depth_format(std::bit_cast<Format>(img_slot.info.format)) ||
-        is_stencil_format(std::bit_cast<Format>(img_slot.info.format));
+    bool const is_image_depth_stencil = daxa_is_format_depth_stencil(img_slot.info.format);
     bool const is_clear_depth_stencil = info->clear_value.index == 3;
     if (is_clear_depth_stencil)
     {
