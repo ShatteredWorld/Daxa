@@ -2453,4 +2453,11 @@ namespace daxa
     }
 
     // -- End Misc ---
+
+    auto format_info(Format format) -> FormatInfo { return std::bit_cast<FormatInfo>(daxa_format_info(std::bit_cast<VkFormat>(format))); }
+    auto is_format_depth(Format format) -> bool { return daxa_is_format_depth(std::bit_cast<VkFormat>(format)); }
+    auto is_format_stencil(Format format) -> bool { return daxa_is_format_stencil(std::bit_cast<VkFormat>(format)); }
+    auto is_format_depth_stencil(Format format) -> bool { return daxa_is_format_depth_stencil(std::bit_cast<VkFormat>(format)); }
+    auto is_format_float(Format format) -> bool { return daxa_is_format_float(std::bit_cast<VkFormat>(format)); }
+    auto is_format_int(Format format) -> bool { return daxa_is_format_int(std::bit_cast<VkFormat>(format)); }
 } // namespace daxa

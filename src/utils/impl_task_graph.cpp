@@ -978,7 +978,7 @@ namespace daxa
 
             impl.resources[index].double_buffer_pair_resource = { &impl.resources.back(), back_buffer_resource_index };
             impl.resources[index].double_buffer_index = 0u;
-            impl.resources[back_buffer_resource_index].double_buffer_pair_resource = { (&impl.resources.back()) - 1u, index };
+            impl.resources[back_buffer_resource_index].double_buffer_pair_resource = { &impl.resources[index], index };
             impl.resources[back_buffer_resource_index].double_buffer_index = 1u;
         }
 
@@ -1033,7 +1033,7 @@ namespace daxa
 
             impl.resources[index].double_buffer_pair_resource = { &impl.resources.back(), back_buffer_resource_index };
             impl.resources[index].double_buffer_index = 0u;
-            impl.resources[back_buffer_resource_index].double_buffer_pair_resource = { (&impl.resources.back()) - 1u, index };
+            impl.resources[back_buffer_resource_index].double_buffer_pair_resource = { &impl.resources[index], index };
             impl.resources[back_buffer_resource_index].double_buffer_index = 1u;
         }
 
@@ -2683,13 +2683,14 @@ namespace daxa
         {
             ImplTaskResource & resource = impl.resources[resource_i];
 
-            if (resource.access_timeline.size() == 0)
-            {
-                continue;
-            }
-
             if (resource.lifetime_type == TaskResourceLifetimeType::TRANSIENT)
             {
+                // Unused transient resources need no allocation, so their lifetime is irrelevant.
+                if (resource.access_timeline.size() == 0)
+                {
+                    continue;
+                }
+
                 resource.final_schedule_first_batch = ~0u;
                 resource.final_schedule_last_batch = 0u;
                 resource.final_schedule_first_submit = ~0u;
@@ -2713,8 +2714,23 @@ namespace daxa
                     }
                 }
             }
-            else // Persistent and external resources always have all batches as a lifetime
+            else // Persistent and external resources always have all batches as a lifetime.
             {
+                // A truly unused persistent resource needs no allocation and can be skipped.
+                // But a double buffer resource is only unused when BOTH pair members have empty
+                // access timelines: an unused back buffer whose primary IS used must still reserve
+                // dedicated memory across the whole graph so it is never aliased and its cross-frame
+                // contents survive the id swap.
+                bool resource_unused = resource.access_timeline.size() == 0;
+                if (resource.double_buffer_pair_resource.first != nullptr)
+                {
+                    resource_unused = resource_unused && resource.double_buffer_pair_resource.first->access_timeline.size() == 0;
+                }
+                if (resource_unused)
+                {
+                    continue;
+                }
+
                 resource.final_schedule_first_batch = 0u;
                 resource.final_schedule_last_batch = impl.flat_batch_count - 2u; // strange that -2 and not 1 -1 is needed here. Possibly a bug somewhere :(
                 resource.final_schedule_first_submit = 0u;
@@ -2740,7 +2756,18 @@ namespace daxa
         for (u32 r = 0; r < impl.resources.size(); ++r)
         {
             ImplTaskResource & resource = impl.resources[r];
-            if (resource.external == nullptr)
+
+            // Skip unused persistent resources entirely: they need neither allocation nor creation.
+            // A double buffer resource only counts as unused when BOTH pair members are unused, so a
+            // back buffer whose primary is used is still allocated to preserve its cross-frame contents.
+            bool persistent_and_unused = resource.lifetime_type != TaskResourceLifetimeType::TRANSIENT &&
+                                         resource.access_timeline.size() == 0;
+            if (persistent_and_unused && resource.double_buffer_pair_resource.first != nullptr)
+            {
+                persistent_and_unused = resource.double_buffer_pair_resource.first->access_timeline.size() == 0;
+            }
+
+            if (resource.external == nullptr && !persistent_and_unused)
             {
                 non_external_resources_sorted_by_lifetime[non_external_resources_count++] = &resource;
             }
@@ -3593,13 +3620,27 @@ namespace daxa
             auto [resource, resource_index] = impl.resource_clear_requests[clear_i];
             DAXA_DBG_ASSERT_TRUE_M(resource->lifetime_type != TaskResourceLifetimeType::TRANSIENT, "IMPOSSIBLE CASE! IT SHOULD BE IMPOSSIBLE TO APPLY A CLEAR TO A NON-PERSISTENT TASK RESOURCE!");
 
-            AccessGroup const & first_access = resource->access_timeline[0];
-            DAXA_DBG_ASSERT_TRUE_M(std::popcount(first_access.queue_bits) == 1, "IMPOSSIBLE CASE! ALL IMAGES FIRST ACCESS MUST BE ON A SINGLE QUEUE! THIS SHOULD BE VALIDATED IN COMPILATION!");
-            
-            u32 first_access_queue_index = queue_bits_to_first_queue_index(first_access.queue_bits);
-            u32 first_access_submit_index = first_access.tasks[0].task->submit_index;
 
-            if (resource->kind == TaskResourceKind::IMAGE && !resource->access_timeline.empty())
+            u32 first_access_queue_index = {};
+            u32 first_access_submit_index = {};
+
+            const bool resource_used = resource->access_timeline.size() > 0;
+            if (resource_used)
+            {
+                AccessGroup const & first_access = resource->access_timeline[0];
+                DAXA_DBG_ASSERT_TRUE_M(std::popcount(first_access.queue_bits) == 1, "IMPOSSIBLE CASE! ALL IMAGES FIRST ACCESS MUST BE ON A SINGLE QUEUE! THIS SHOULD BE VALIDATED IN COMPILATION!");
+                
+                first_access_queue_index = queue_bits_to_first_queue_index(first_access.queue_bits);
+                first_access_submit_index = first_access.tasks[0].task->submit_index;
+            }
+
+            bool resource_unused = resource->access_timeline.empty();
+            if (resource->double_buffer_pair_resource.first != nullptr)
+            {
+                resource_unused = resource_unused && resource->double_buffer_pair_resource.first->access_timeline.empty();
+            }
+
+            if (resource->kind == TaskResourceKind::IMAGE && !resource_unused)
             {
                 image_initializations[first_access_submit_index][first_access_queue_index].push_back(TaskBarrier{
                     .src_access_group = {},
@@ -3611,7 +3652,11 @@ namespace daxa
                 });
             }
 
-            resource_clears[first_access_submit_index][first_access_queue_index].push_back({ resource, resource_index });
+            // Unused persistent resources are neither allocated nor created, so they have no id to clear.
+            if (!resource_unused)
+            {
+                resource_clears[first_access_submit_index][first_access_queue_index].push_back({ resource, resource_index });
+            }
 
             // Reset clear reqest index within resource
             resource->clear_request_index = ~0u;
@@ -3758,7 +3803,7 @@ namespace daxa
                         cr.clear_image(ImageClearInfo{
                             .image = resource_clear.resource->id.image,
                             .slice = device.image_view_info(resource_clear.resource->id.image.default_view()).value().slice,
-                            .clear_value = ClearValue{std::array{0u, 0u, 0u, 0u}},
+                            .clear_value = daxa::is_format_depth_stencil(resource_clear.resource->info.image.format) ? ClearValue{DepthValue{0.0f, 0u}} : ClearValue{std::array{0u, 0u, 0u, 0u}},
                         });
                     }
                     else
@@ -3767,9 +3812,12 @@ namespace daxa
                     }
 
                     // Merge first accesses
-                    auto const & first_access_group = resource_clear.resource->access_timeline[0];
-                    auto first_access = Access{task_stage_to_pipeline_stage(first_access_group.stages), to_access_type(first_access_group.type)};
-                    post_clear_first_access_merged = post_clear_first_access_merged | first_access;
+                    if (resource_clear.resource->access_timeline.size() > 0)
+                    {
+                        auto const & first_access_group = resource_clear.resource->access_timeline[0];
+                        auto first_access = Access{task_stage_to_pipeline_stage(first_access_group.stages), to_access_type(first_access_group.type)};
+                        post_clear_first_access_merged = post_clear_first_access_merged | first_access;
+                    }
                 }
 
                 // Insert resource clear to first access barrier

@@ -711,7 +711,11 @@ namespace daxa
                     if (from_cache) { ++s.stage_cache_hits; }
                     if (is_outermost && s.print_fn)
                     {
-                        bool const ok = (*s.compute_states)[idx].is_ok();
+                        // With register_null_pipelines_when_first_compile_fails, a failed compile still
+                        // returns is_ok()==true but carries the error text in .m — so treat a non-empty
+                        // message as a failure and surface it.
+                        auto const & res = (*s.compute_states)[idx];
+                        bool const ok = res.is_ok() && res.m.empty();
                         auto const done = ++s.stage_completed;
                         auto const pct = done * 100u / s.total_stages;
                         auto const ms = static_cast<u32>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - pipeline_t0).count());
@@ -721,6 +725,8 @@ namespace daxa
                             pct, ms, status, (*s.computes)[idx].name.c_str());
                         std::lock_guard<std::mutex> lock{s.print_mtx};
                         s.print_fn(s.print_user_data, buf, thread_index, 0u, s.total_workers);
+                        if (!ok && !res.m.empty())
+                            s.print_fn(s.print_user_data, res.m.c_str(), thread_index, 0u, s.total_workers);
                     }
                 }
                 else if (idx < s.compute_count + s.raster_count)
@@ -1274,6 +1280,8 @@ namespace daxa
                             pct, ms, status, shader_stage_abbrev(w.stage), s.name->c_str());
                         std::lock_guard<std::mutex> lock{*print_mtx};
                         pi->print_fn(pi->print_user_data, buf, thread_index, 0u, pi->worker_thread_count);
+                        if (!ok)
+                            pi->print_fn(pi->print_user_data, w.spv_dest->message().c_str(), thread_index, 0u, pi->worker_thread_count);
                     }
                 });
         }
@@ -1298,6 +1306,8 @@ namespace daxa
                         pct, ms, status, shader_stage_abbrev(w.stage), pipe_result.info.name.c_str());
                     std::lock_guard<std::mutex> lock{*current_print_mtx};
                     current_parallel_info->print_fn(current_parallel_info->print_user_data, buf, ~0u, 0u, current_parallel_info->worker_thread_count);
+                    if (!ok)
+                        current_parallel_info->print_fn(current_parallel_info->print_user_data, w.spv_dest->message().c_str(), ~0u, 0u, current_parallel_info->worker_thread_count);
                 }
             }
         }
