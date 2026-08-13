@@ -1030,10 +1030,10 @@ namespace daxa
 
                     if (!state.image.display_image.is_empty())
                     {
-                        state.image.imgui_image_id = context.imgui_renderer.create_texture_id({
+                        state.image.imgui_image_id = reinterpret_cast<void*>(context.imgui_renderer.create_texture_id({
                             .image_view = state.image.display_image.default_view(),
                             .sampler = context.resource_viewer_sampler,
-                        });
+                        }));
                         ImPlot::PushStyleVar(ImPlotStyleVar_PlotBorderSize, 2);
                         ImPlot::PushStyleVar(ImPlotStyleVar_PlotPadding, ImVec2(0.0f, 0.0f));
                         ImPlot::PushStyleVar(ImPlotStyleVar_LabelPadding, ImVec2(0.0f, 0.0f));
@@ -1068,7 +1068,7 @@ namespace daxa
                                 mouse_pos = ImPlotPoint(raw_mouse_pos.x, 1.0f - raw_mouse_pos.y) * ImPlotPoint(size_x, size_y);
                             }
 
-                            ImPlot::PlotImage("##my image", state.image.imgui_image_id, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));
+                            ImPlot::PlotImage("##my image", reinterpret_cast<ImTextureID>(state.image.imgui_image_id), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f), ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f));
                             ImPlot::EndPlot();
                         }
                         state.image.mouse_texel_index = {
