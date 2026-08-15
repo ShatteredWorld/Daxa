@@ -947,17 +947,13 @@ auto daxa_dvc_create_tlas_from_memory_block(daxa_Device self, daxa_MemoryBlockTl
 {
     auto buffer_info = daxa_BufferInfo{
         .size = info->tlas_info.size,
+        .memory_flags = DAXA_MEMORY_FLAG_NONE,
         .name = info->tlas_info.name,
     };
     daxa_BufferId buffer = {};
     daxa_Result result = create_buffer_helper(self, &buffer_info, &buffer, *info->memory_block, info->offset);
     _DAXA_RETURN_IF_ERROR(result, result);
 
-    auto buffer_tlas_info = daxa_BufferTlasInfo{
-        .tlas_info = info->tlas_info,
-        .buffer = buffer,
-        .offset = {},
-    };
     u64 const buffer_offset = 0u; // the offset is used for sub allocating the memory block, the tlas is the whole buffer
     return create_acceleration_structure_helper(
         self,
@@ -2922,7 +2918,7 @@ auto daxa_ImplDevice::hot_slot(daxa_BlasId blas) const -> ImplBlasSlot::HotData 
 void daxa_ImplDevice::zero_ref_callback(ImplHandle const * handle)
 {
     auto self = rc_cast<daxa_Device>(handle);
-    auto result = daxa_dvc_wait_idle(self);
+    [[maybe_unused]] auto result = daxa_dvc_wait_idle(self);
     DAXA_DBG_ASSERT_TRUE_M(result == DAXA_RESULT_SUCCESS, "failed to wait idle");
     result = daxa_dvc_collect_garbage(self);
     DAXA_DBG_ASSERT_TRUE_M(result == DAXA_RESULT_SUCCESS, "failed to wait idle");
@@ -2962,7 +2958,7 @@ void zombiefy(daxa_Device self, T id, auto & slots, auto & zombies)
     {
         if (slot.owns_buffer)
         {
-            auto result = daxa_dvc_destroy_buffer(self, slot.buffer_id);
+            [[maybe_unused]] auto result = daxa_dvc_destroy_buffer(self, slot.buffer_id);
             DAXA_DBG_ASSERT_TRUE_M(result == DAXA_RESULT_SUCCESS, "Tlas owned buffer could not be destroyed.");
         }
     }

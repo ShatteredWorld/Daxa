@@ -56,15 +56,16 @@ if (DAXA_ENABLE_UTILS_IMGUI AND NOT TARGET imgui::imgui)
             ${imgui_SOURCE_DIR}/imgui_widgets.cpp
             ${imgui_SOURCE_DIR}/imgui_tables.cpp)
 
-        target_include_directories(lib_imgui PUBLIC
+        target_include_directories(lib_imgui SYSTEM PUBLIC
             ${imgui_SOURCE_DIR}
             ${imgui_SOURCE_DIR}/backends
             ${Vulkan_INCLUDE_DIRS})
+        target_compile_options(lib_imgui PRIVATE -Wno-nontrivial-memcall)
 
         if(TARGET glfw)
             target_sources(lib_imgui PRIVATE ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp)
             target_link_libraries(lib_imgui PRIVATE glfw)
-            target_include_directories(lib_imgui PUBLIC ${glfw_SOURCE_DIR}/include)
+            target_include_directories(lib_imgui SYSTEM PUBLIC ${glfw_SOURCE_DIR}/include)
         endif()
 
         add_library(imgui::imgui ALIAS lib_imgui)
@@ -88,7 +89,8 @@ if (DAXA_ENABLE_UTILS_IMGUI AND NOT TARGET implot::implot)
             ${implot_SOURCE_DIR}/implot_items.cpp
             ${implot_SOURCE_DIR}/implot_demo.cpp)
 
-        target_include_directories(lib_implot PUBLIC ${implot_SOURCE_DIR})
+        target_include_directories(lib_implot SYSTEM PUBLIC ${implot_SOURCE_DIR})
+        target_compile_options(lib_implot PRIVATE -Wno-nontrivial-memcall)
         target_link_libraries(lib_implot PRIVATE imgui::imgui)
 
         add_library(implot::implot ALIAS lib_implot)
