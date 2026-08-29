@@ -20,7 +20,7 @@ function(msvc_inherit_from_vcvars)
 
     # Adapted from Modules/Platform/Windows-GNU.cmake
     set(VS_INSTALLER_PATHS "")
-    set(VS_VERSIONS 17)
+    set(VS_VERSIONS 18 17)
     foreach(VER ${VS_VERSIONS}) # change the first number to the largest supported version
         cmake_host_system_information(RESULT VS_DIR QUERY VS_${VER}_DIR)
         if(VS_DIR)
