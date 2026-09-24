@@ -8,6 +8,7 @@
 #include <set>
 #include <optional>
 
+#include "../impl_core.hpp"
 
 #define TASK_GRAPH_RESOURCE_VIEWER_ONLINE_COMPILE_SHADERS 0 // FOR DEVELOPMENT ONLY
 
