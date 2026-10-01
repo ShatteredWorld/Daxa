@@ -6,7 +6,6 @@
 #include "impl_task_graph_ui.hpp"
 #include <daxa/utils/imgui.hpp>
 #include <imgui_internal.h>
-#include <implot.h>
 #include "impl_task_graph.hpp"
 #include <filesystem>
 
@@ -419,11 +418,11 @@ namespace daxa
             }
             else
             {
-                for (u32 i = 0; i < std::min(255ul, resource.name.size()); ++i)
+                for (u32 i = 0; i < std::min(255ull, resource.name.size()); ++i)
                 {
                     ui_context.resource_name_search[i] = resource.name[i];
                 }
-                ui_context.resource_name_search[std::min(255ul, resource.name.size())] = 0;
+                ui_context.resource_name_search[std::min(255ull, resource.name.size())] = 0;
             }
         }
     }
@@ -484,11 +483,11 @@ namespace daxa
             }
             else
             {
-                for (u32 i = 0; i < std::min(255ul, task.name.size()); ++i)
+                for (u32 i = 0; i < std::min(255ull, task.name.size()); ++i)
                 {
                     ui_context.task_name_search[i] = task.name[i];
                 }
-                ui_context.task_name_search[std::min(255ul, task.name.size())] = 0;
+                ui_context.task_name_search[std::min(255ull, task.name.size())] = 0;
             }
         }
     }
